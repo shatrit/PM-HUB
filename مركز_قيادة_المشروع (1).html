@@ -1,0 +1,2324 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مركز قيادة المشروع — شبكات المياه</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0a0e14;
+    --panel: #11161e;
+    --panel-2: #161c26;
+    --border: #1e2632;
+    --border-strong: #2a3441;
+    --text: #e6edf3;
+    --text-dim: #8b95a3;
+    --text-mute: #5a6473;
+    --accent: #ffa726;       /* burnt orange - hi-vis safety */
+    --accent-2: #4fc3f7;     /* steel blue */
+    --green: #66bb6a;
+    --red: #ef5350;
+    --yellow: #ffca28;
+    --purple: #ab7df8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Arabic', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block; }
+
+  /* Grain overlay for industrial texture */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.025; pointer-events: none; z-index: 1;
+  }
+
+  /* Sidebar */
+  .sidebar { background: var(--panel); border-left: 1px solid var(--border); }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 16px; margin: 2px 8px;
+    border-radius: 6px; cursor: pointer;
+    color: var(--text-dim);
+    border: 1px solid transparent;
+    font-size: 14px; font-weight: 500;
+    transition: all .15s;
+  }
+  .nav-item:hover { background: var(--panel-2); color: var(--text); }
+  .nav-item.active {
+    background: var(--panel-2); color: var(--accent);
+    border-color: var(--border-strong);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .nav-item .num {
+    margin-inline-start: auto; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; padding: 2px 7px; border-radius: 4px;
+    background: var(--bg); color: var(--text-mute);
+  }
+  .nav-item.active .num { background: var(--accent); color: var(--bg); font-weight: 700; }
+
+  /* Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-mute); text-transform: uppercase;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+  }
+
+  /* KPI big numbers */
+  .kpi-num { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
+  .kpi-label { font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
+  .kpi-delta { font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 8px; }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+
+  /* Tables */
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data thead th {
+    text-align: right; padding: 10px 12px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    color: var(--text-mute); text-transform: uppercase;
+    border-bottom: 1px solid var(--border-strong);
+    background: var(--panel-2);
+    position: sticky; top: 0;
+  }
+  table.data tbody td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  table.data tbody tr { transition: background .1s; }
+  table.data tbody tr:hover { background: var(--panel-2); }
+  table.data .num-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    border: 1px solid transparent;
+  }
+  .badge.green   { background: rgba(102,187,106,.12); color: #81c784; border-color: rgba(102,187,106,.3); }
+  .badge.blue    { background: rgba(79,195,247,.12); color: #4fc3f7; border-color: rgba(79,195,247,.3); }
+  .badge.orange  { background: rgba(255,167,38,.12); color: #ffb74d; border-color: rgba(255,167,38,.3); }
+  .badge.red     { background: rgba(239,83,80,.12); color: #e57373; border-color: rgba(239,83,80,.3); }
+  .badge.yellow  { background: rgba(255,202,40,.12); color: #ffd54f; border-color: rgba(255,202,40,.3); }
+  .badge.purple  { background: rgba(171,125,248,.12); color: #ce93d8; border-color: rgba(171,125,248,.3); }
+  .badge.gray    { background: rgba(139,149,163,.1); color: var(--text-dim); border-color: var(--border-strong); }
+
+  /* Inputs */
+  input, select, textarea {
+    background: var(--bg); border: 1px solid var(--border-strong);
+    color: var(--text); padding: 9px 12px; border-radius: 6px;
+    font-family: inherit; font-size: 13px; width: 100%;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  label.fld { display: block; font-size: 11px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 600; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid transparent; transition: all .15s;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #0a0e14; }
+  .btn-primary:hover { background: #ffb74d; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border-color: var(--border-strong); }
+  .btn-ghost:hover { background: var(--panel-2); color: var(--text); }
+  .btn-danger { background: transparent; color: var(--red); border-color: rgba(239,83,80,.3); }
+  .btn-danger:hover { background: rgba(239,83,80,.1); }
+
+  /* Progress bars */
+  .progress { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width .4s; }
+  .progress-fill.green { background: var(--green); }
+  .progress-fill.red { background: var(--red); }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px); z-index: 50; display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-backdrop.active { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 12px; padding: 24px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; }
+
+  /* Tabs */
+  .tab-btn {
+    padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    color: var(--text-dim); cursor: pointer; border: 1px solid transparent;
+    transition: all .15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { background: var(--accent); color: var(--bg); }
+
+  /* Section header style */
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .section-head h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .section-head .meta { font-size: 12px; color: var(--text-mute); font-family: 'JetBrains Mono', monospace; }
+
+  /* Stripe accent on cards */
+  .stripe-card { border-top: 2px solid var(--accent); }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-mute); }
+
+  /* Section visibility */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* File drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: 8px; padding: 32px;
+    text-align: center; cursor: pointer;
+    transition: all .15s;
+    background: var(--panel-2);
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(255,167,38,.05); }
+
+  /* Top bar */
+  .topbar {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 16px;
+  }
+  .topbar-brand .logo {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 800; font-family: 'JetBrains Mono', monospace;
+    box-shadow: 0 0 0 1px var(--border-strong), 0 0 20px rgba(255,167,38,.3);
+  }
+
+  /* Risk tag */
+  .risk-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(239,83,80,.1); color: #e57373;
+    border: 1px solid rgba(239,83,80,.2);
+  }
+  .risk-tag::before { content: '▲'; font-size: 9px; }
+
+  /* Tooltip-style empty */
+  .empty-state {
+    text-align: center; padding: 48px 24px; color: var(--text-mute); font-size: 13px;
+  }
+
+  /* Fade-in */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .section.active { animation: fadeIn .25s ease-out; }
+
+  /* Sync indicator */
+  .sync-indicator {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    background: var(--panel-2); border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    cursor: pointer; transition: all .15s;
+  }
+  .sync-indicator:hover { background: var(--bg); color: var(--text); }
+  .sync-indicator .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-mute);
+  }
+  .sync-indicator.synced { color: var(--green); border-color: rgba(102,187,106,.3); }
+  .sync-indicator.synced .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .sync-indicator.syncing { color: var(--accent); border-color: rgba(255,167,38,.3); }
+  .sync-indicator.syncing .dot { background: var(--accent); animation: pulse 1s infinite; }
+  .sync-indicator.error { color: var(--red); border-color: rgba(239,83,80,.3); }
+  .sync-indicator.error .dot { background: var(--red); }
+  .sync-indicator.offline { color: var(--text-mute); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Setup screen */
+  .setup-screen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 100;
+    display: none; align-items: center; justify-content: center; padding: 24px; overflow-y: auto;
+  }
+  .setup-screen.active { display: flex; }
+  .setup-card {
+    max-width: 560px; width: 100%; background: var(--panel);
+    border: 1px solid var(--border-strong); border-radius: 12px; padding: 32px;
+    border-top: 3px solid var(--accent);
+  }
+  .setup-step {
+    display: flex; gap: 14px; padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .setup-step:last-of-type { border-bottom: none; }
+  .step-num {
+    flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  }
+  .step-content { flex: 1; }
+  .step-content h4 { font-weight: 700; margin-bottom: 4px; font-size: 14px; }
+  .step-content p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .step-content code {
+    background: var(--bg); padding: 2px 7px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--accent); border: 1px solid var(--border-strong);
+  }
+  .scope-tag {
+    display: inline-block; background: var(--bg); padding: 3px 9px;
+    border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--accent-2); border: 1px solid var(--border-strong); margin-top: 4px;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="logo">PM</div>
+    <div>
+      <div>مركز قيادة المشروع</div>
+      <div class="text-xs font-normal" style="color:var(--text-mute)">شبكات المياه — الخزان — مباني المضخات</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="mono text-xs" style="color:var(--text-mute)" id="todayDate"></span>
+    <div class="sync-indicator offline" id="syncIndicator" onclick="openSyncModal()">
+      <span class="dot"></span>
+      <span id="syncLabel">غير متصل</span>
+    </div>
+    <button class="btn btn-ghost" onclick="exportData()">↓ تصدير</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">↑ استيراد</button>
+    <input type="file" id="importFile" accept=".json" hidden onchange="importData(event)">
+  </div>
+</div>
+
+<div class="flex" style="min-height: calc(100vh - 65px)">
+
+  <!-- Sidebar -->
+  <aside class="sidebar w-64 flex-shrink-0 py-4">
+    <div class="text-xs font-semibold px-4 mb-2" style="color:var(--text-mute); letter-spacing:.1em">— الملاحة —</div>
+    <div class="nav-item active" onclick="showSection('dashboard', this)">
+      <span>📊</span> لوحة القيادة <span class="num">HUB</span>
+    </div>
+    <div class="nav-item" onclick="showSection('tasks', this)">
+      <span>✅</span> المهام <span class="num" id="navTasks">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('planning', this)">
+      <span>📅</span> التخطيط <span class="num" id="navPlanning">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('boq', this)">
+      <span>📋</span> جدول الكميات <span class="num" id="navBoq">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('payments', this)">
+      <span>💰</span> المستخلصات <span class="num" id="navPayments">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('materials', this)">
+      <span>📦</span> توريد المواد <span class="num" id="navMaterials">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('submittals', this)">
+      <span>📄</span> المستندات <span class="num" id="navSubmittals">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('permits', this)">
+      <span>📜</span> الرخص <span class="num" id="navPermits">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('budget', this)">
+      <span>💵</span> الميزانية <span class="num" id="navBudget">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('subs', this)">
+      <span>👷</span> مقاولو الباطن <span class="num" id="navSubs">0</span>
+    </div>
+    <div class="nav-item" onclick="showSection('lookahead', this)">
+      <span>🔭</span> الأسبوعان القادمان <span class="num" id="navLookahead">0</span>
+    </div>
+
+    <div class="text-xs font-semibold px-4 mt-6 mb-2" style="color:var(--text-mute); letter-spacing:.1em">— الإعدادات —</div>
+    <div class="nav-item" onclick="openSyncModal()">
+      <span>☁</span> المزامنة السحابية
+    </div>
+    <div class="nav-item" onclick="resetData()" style="color:var(--red)">
+      <span>⚠</span> مسح كل البيانات
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 p-7 overflow-x-hidden" style="z-index:2">
+
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="section active">
+      <div class="section-head">
+        <div>
+          <h1>لوحة القيادة</h1>
+          <div class="meta mt-1" id="dashMeta">— تحديث مباشر —</div>
+        </div>
+      </div>
+
+      <!-- KPI Strip -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="card stripe-card">
+          <div class="card-title">الإنجاز الفعلي</div>
+          <div class="kpi-num" id="kpiActual">—</div>
+          <div class="kpi-label">من إجمالي المشروع</div>
+          <div class="progress mt-3"><div class="progress-fill" id="kpiActualBar" style="width:0%"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="--accent: var(--accent-2)">الإنجاز المخطط</div>
+          <div class="kpi-num" id="kpiPlanned">—</div>
+          <div class="kpi-label">حسب الجدول الزمني</div>
+          <div class="kpi-delta" id="kpiVariance">—</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="--accent: var(--green)">المصروف</div>
+          <div class="kpi-num" id="kpiSpent">—</div>
+          <div class="kpi-label">ريال سعودي</div>
+          <div class="kpi-delta" id="kpiSpentPct">— من الميزانية</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="--accent: var(--red)">التنبيهات</div>
+          <div class="kpi-num" id="kpiAlerts">—</div>
+          <div class="kpi-label">بنود تحتاج اهتمام</div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="card lg:col-span-2">
+          <div class="card-title">الإنجاز المخطط vs الفعلي حسب البند</div>
+          <div style="height: 280px"><canvas id="chartProgress"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">حالة بنود BOQ</div>
+          <div style="height: 280px"><canvas id="chartBoqStatus"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="card lg:col-span-2">
+          <div class="card-title">التدفق المالي (المستخلصات الشهرية)</div>
+          <div style="height: 240px"><canvas id="chartCashflow"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">توزيع الميزانية</div>
+          <div style="height: 240px"><canvas id="chartBudget"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Hot list & risks -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="card">
+          <div class="card-title">🔥 المهام العاجلة</div>
+          <div id="hotTasks"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="--accent: var(--red)">⚠ المخاطر والتنبيهات</div>
+          <div id="riskList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TASKS -->
+    <section id="tasks" class="section">
+      <div class="section-head">
+        <div><h1>المهام (To-Do List)</h1><div class="meta mt-1" id="tasksMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openTaskModal()">+ مهمة جديدة</button>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <button class="tab-btn active" data-filter="open" onclick="filterTasks('open', this)">المفتوحة</button>
+        <button class="tab-btn" data-filter="all" onclick="filterTasks('all', this)">الكل</button>
+        <button class="tab-btn" data-filter="urgent" onclick="filterTasks('urgent', this)">العاجلة</button>
+        <button class="tab-btn" data-filter="done" onclick="filterTasks('done', this)">المنجزة</button>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <div class="overflow-x-auto" style="max-height: 65vh">
+          <table class="data" id="tasksTable">
+            <thead><tr>
+              <th style="width:40px"></th>
+              <th>المهمة</th><th>الأولوية</th><th>الحالة</th><th>القسم</th>
+              <th>المسؤول</th><th>البند</th><th>الاستحقاق</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLANNING -->
+    <section id="planning" class="section">
+      <div class="section-head">
+        <div><h1>التخطيط ومتابعة الإنجاز</h1><div class="meta mt-1">المخطط vs الفعلي</div></div>
+        <button class="btn btn-primary" onclick="openPlanModal()">+ مرحلة جديدة</button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div class="card">
+          <div class="card-title">منحنى الإنجاز التراكمي</div>
+          <div style="height: 280px"><canvas id="chartSCurve"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">الانحراف لكل مرحلة</div>
+          <div style="height: 280px"><canvas id="chartVariance"></canvas></div>
+        </div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="data" id="planTable">
+            <thead><tr>
+              <th>المرحلة</th><th>البند</th><th>الوزن %</th>
+              <th>المخطط</th><th>الفعلي</th><th>الانحراف</th>
+              <th>البدء المخطط</th><th>الانتهاء المخطط</th><th>الحالة</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOQ -->
+    <section id="boq" class="section">
+      <div class="section-head">
+        <div><h1>جدول الكميات (BOQ)</h1><div class="meta mt-1" id="boqMeta">—</div></div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="document.getElementById('boqFile').click()">📂 رفع Excel/CSV</button>
+          <input type="file" id="boqFile" accept=".xlsx,.xls,.csv" hidden onchange="importBOQ(event)">
+          <button class="btn btn-ghost" onclick="downloadBoqTemplate()">⬇ نموذج فارغ</button>
+          <button class="btn btn-primary" onclick="openBoqModal()">+ بند جديد</button>
+        </div>
+      </div>
+
+      <!-- BOQ KPIs -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">قيمة العقد</div><div class="kpi-num" id="boqContract">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">قيمة المنفذ</div><div class="kpi-num" id="boqExecuted">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--accent-2)">قيمة المتبقي</div><div class="kpi-num" id="boqRemaining">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--purple)">% الإنجاز المالي</div><div class="kpi-num" id="boqProgress">—</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card mb-4 p-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label class="fld">بحث</label>
+            <input type="text" id="boqSearch" placeholder="كود أو وصف..." oninput="renderBoq()">
+          </div>
+          <div>
+            <label class="fld">القسم</label>
+            <select id="boqFilterSection" onchange="renderBoq()">
+              <option value="">الكل</option>
+              <option>شبكات المياه</option><option>غرف الصمامات</option><option>الخزان</option>
+              <option>مباني المضخات</option><option>كهروميكانيكال</option><option>أعمال موقع</option><option>متفرقات</option>
+            </select>
+          </div>
+          <div>
+            <label class="fld">الحالة</label>
+            <select id="boqFilterStatus" onchange="renderBoq()">
+              <option value="">الكل</option>
+              <option>لم يبدأ</option><option>قيد التنفيذ</option><option>منجز</option><option>متوقف</option>
+            </select>
+          </div>
+          <div>
+            <label class="fld">العرض</label>
+            <select id="boqViewMode" onchange="renderBoq()">
+              <option value="grouped">مجمّع حسب القسم (مدمج)</option>
+              <option value="flat">جدول مسطّح</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="boqContainer"></div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="payments" class="section">
+      <div class="section-head">
+        <div><h1>المستخلصات الشهرية</h1><div class="meta mt-1" id="payMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openPayModal()">+ مستخلص جديد</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">إجمالي مقدم</div><div class="kpi-num" id="paySubmitted">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">إجمالي مصروف</div><div class="kpi-num" id="payPaid">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--yellow)">قيد الصرف</div><div class="kpi-num" id="payPending">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--accent-2)">عدد المستخلصات</div><div class="kpi-num" id="payCount">—</div></div>
+      </div>
+      <div class="card mb-4">
+        <div class="card-title">التدفق النقدي</div>
+        <div style="height: 260px"><canvas id="chartPayFlow"></canvas></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="payTable">
+          <thead><tr>
+            <th>الرقم</th><th>الشهر</th><th>تاريخ التقديم</th><th>تاريخ الصرف</th>
+            <th>القيمة</th><th>الخصومات</th><th>الصافي</th><th>% تراكمي</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MATERIALS -->
+    <section id="materials" class="section">
+      <div class="section-head">
+        <div><h1>توريد المواد</h1><div class="meta mt-1" id="matMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openMatModal()">+ مادة جديدة</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">إجمالي القيمة</div><div class="kpi-num" id="matTotal">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">وصل الموقع</div><div class="kpi-num" id="matArrived">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--yellow)">في الطريق</div><div class="kpi-num" id="matTransit">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--red)">متأخر/مشاكل</div><div class="kpi-num" id="matIssues">—</div></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="matTable">
+          <thead><tr>
+            <th>المادة</th><th>الفئة</th><th>الكمية</th><th>القيمة</th>
+            <th>المورد</th><th>PO</th><th>التصنيع</th><th>التوريد</th>
+            <th>التوريد المتوقع</th><th>الأولوية</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SUBMITTALS -->
+    <section id="submittals" class="section">
+      <div class="section-head">
+        <div><h1>المستندات الفنية (Submittals)</h1><div class="meta mt-1" id="subMeta">—</div></div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="document.getElementById('subFile').click()">📂 رفع Excel/CSV</button>
+          <input type="file" id="subFile" accept=".xlsx,.xls,.csv" hidden onchange="importSubmittals(event)">
+          <button class="btn btn-ghost" onclick="downloadSubTemplate()">⬇ نموذج فارغ</button>
+          <button class="btn btn-primary" onclick="openSubModal()">+ مستند جديد</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">إجمالي مقدم</div><div class="kpi-num" id="subSubmitted">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">معتمد</div><div class="kpi-num" id="subApproved">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--yellow)">قيد المراجعة</div><div class="kpi-num" id="subReview">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--red)">مرفوض/تعديل</div><div class="kpi-num" id="subRejected">—</div></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="subTable">
+          <thead><tr>
+            <th>الرقم</th><th>اسم المستند</th><th>النوع</th><th>البند</th>
+            <th>المراجعة</th><th>التقديم</th><th>الرد</th><th>التأخير (يوم)</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PERMITS -->
+    <section id="permits" class="section">
+      <div class="section-head">
+        <div><h1>الرخص والتصاريح</h1><div class="meta mt-1" id="permitMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openPermitModal()">+ رخصة جديدة</button>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="permitTable">
+          <thead><tr>
+            <th>الاسم</th><th>النوع</th><th>الجهة</th><th>الرقم</th>
+            <th>الإصدار</th><th>الانتهاء</th><th>التكلفة</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BUDGET -->
+    <section id="budget" class="section">
+      <div class="section-head">
+        <div><h1>الميزانية</h1><div class="meta mt-1" id="budgetMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openBudgetModal()">+ بند ميزانية</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">إجمالي المخصص</div><div class="kpi-num" id="budgetAlloc">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">إجمالي المصروف</div><div class="kpi-num" id="budgetSpent">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--accent-2)">المتبقي</div><div class="kpi-num" id="budgetRemain">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--yellow)">% الصرف</div><div class="kpi-num" id="budgetPct">—</div></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="budgetTable">
+          <thead><tr>
+            <th>البند</th><th>الفئة</th><th>المخصص</th><th>المصروف</th>
+            <th>المتبقي</th><th>% الصرف</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SUBS -->
+    <section id="subs" class="section">
+      <div class="section-head">
+        <div><h1>مقاولو الباطن</h1><div class="meta mt-1" id="subsMeta">—</div></div>
+        <button class="btn btn-primary" onclick="openSubconModal()">+ مقاول جديد</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="card stripe-card"><div class="card-title">إجمالي العقود</div><div class="kpi-num" id="subsContracts">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--green)">قيمة المنجز</div><div class="kpi-num" id="subsDone">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--accent-2)">المصروف</div><div class="kpi-num" id="subsPaid">—</div></div>
+        <div class="card"><div class="card-title" style="--accent:var(--yellow)">المستحقات الحالية</div><div class="kpi-num" id="subsDue">—</div></div>
+      </div>
+      <div class="card p-0 overflow-hidden">
+        <table class="data" id="subconTable">
+          <thead><tr>
+            <th>المقاول</th><th>التخصص</th><th>البند</th><th>قيمة العقد</th>
+            <th>% الإنجاز</th><th>قيمة المنجز</th><th>المصروف</th><th>المستحقات</th><th>متبقي العقد</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- LOOK-AHEAD -->
+    <section id="lookahead" class="section">
+      <div class="section-head">
+        <div><h1>الأسبوعان القادمان (Look-Ahead)</h1><div class="meta mt-1">التخطيط الأسبوعي</div></div>
+        <button class="btn btn-primary" onclick="openLookModal()">+ نشاط جديد</button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm font-bold mb-3" style="color:var(--accent-2)">▸ الأسبوع 1</div>
+          <div id="lookWeek1"></div>
+        </div>
+        <div>
+          <div class="text-sm font-bold mb-3" style="color:var(--purple)">▸ الأسبوع 2</div>
+          <div id="lookWeek2"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Universal Modal -->
+<div class="modal-backdrop" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ============================================================
+// DATA STORE
+// ============================================================
+const STORAGE_KEY = 'pm_water_project_v1';
+const DEFAULTS = {
+  tasks: [],
+  planning: [],
+  boq: [],
+  payments: [],
+  materials: [],
+  submittals: [],
+  permits: [],
+  budget: [],
+  subcontractors: [],
+  lookahead: []
+};
+let DB = loadDB();
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+  } catch(e) { console.error(e); }
+  return seedDB();
+}
+function saveDB() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+  refreshAll();
+  if (typeof scheduleSync === 'function') scheduleSync();
+}
+
+function seedDB() {
+  // Sample data so the app isn't empty on first launch
+  return {
+    tasks: [
+      { id: id(), title: 'متابعة اعتماد صمام البوابة 12 إنش', priority: 'عاجل', status: 'جديدة', dept: 'فني', assignee: 'م. أحمد', linkedTo: 'غرف الصمامات', due: today(0), notes: '' },
+      { id: id(), title: 'إعداد مستخلص مايو', priority: 'عالية', status: 'قيد التنفيذ', dept: 'مالي', assignee: 'أ. خالد', linkedTo: 'عام', due: today(3), notes: '' },
+      { id: id(), title: 'تفتيش سلامة الخنادق المفتوحة', priority: 'عالية', status: 'جديدة', dept: 'سلامة', assignee: 'أ. فهد', linkedTo: 'شبكات المياه', due: today(2), notes: '' },
+      { id: id(), title: 'تسليم نتائج اختبار المكعبات 7 يوم', priority: 'متوسطة', status: 'بانتظار', dept: 'جودة', assignee: 'م. سعيد', linkedTo: 'الخزان', due: today(5), notes: '' }
+    ],
+    planning: [
+      { id: id(), name: 'شبكات المياه - حفر وتركيب الأنابيب', section: 'شبكات المياه', weight: 35, planned: 60, actual: 45, plannedStart: '2026-01-15', plannedEnd: '2026-08-30', status: 'قيد التنفيذ' },
+      { id: id(), name: 'غرف الصمامات', section: 'غرف الصمامات', weight: 15, planned: 40, actual: 35, plannedStart: '2026-02-01', plannedEnd: '2026-09-15', status: 'قيد التنفيذ' },
+      { id: id(), name: 'الخزان الرئيسي', section: 'الخزان', weight: 25, planned: 75, actual: 70, plannedStart: '2025-12-01', plannedEnd: '2026-07-30', status: 'قيد التنفيذ' },
+      { id: id(), name: 'مباني المضخات', section: 'مباني المضخات', weight: 25, planned: 25, actual: 15, plannedStart: '2026-03-01', plannedEnd: '2026-11-30', status: 'قيد التنفيذ' }
+    ],
+    boq: [
+      { id: id(), code: '1.1.1', desc: 'حفر خنادق لخطوط المياه لعمق حتى 2 متر', section: 'شبكات المياه', subcat: 'حفر وردم', unit: 'م³', contractQty: 8500, executedQty: 4250, unitPrice: 145, status: 'قيد التنفيذ' },
+      { id: id(), code: '1.2.1', desc: 'توريد وتركيب أنابيب HDPE 400mm PN16', section: 'شبكات المياه', subcat: 'أنابيب', unit: 'م', contractQty: 4500, executedQty: 2025, unitPrice: 425, status: 'قيد التنفيذ' },
+      { id: id(), code: '2.1.1', desc: 'توريد وتركيب صمام بوابي 12"', section: 'غرف الصمامات', subcat: 'صمامات', unit: 'عدد', contractQty: 12, executedQty: 0, unitPrice: 38500, status: 'لم يبدأ' },
+      { id: id(), code: '2.2.1', desc: 'إنشاء غرفة صمامات بأبعاد 3×2.5×2.5م', section: 'غرف الصمامات', subcat: 'خرسانة', unit: 'عدد', contractQty: 12, executedQty: 5, unitPrice: 8500, status: 'قيد التنفيذ' },
+      { id: id(), code: '3.1.1', desc: 'حفر أساس الخزان', section: 'الخزان', subcat: 'حفر وردم', unit: 'م³', contractQty: 1850, executedQty: 1850, unitPrice: 165, status: 'منجز' },
+      { id: id(), code: '3.2.1', desc: 'خرسانة مسلحة C40 لجدران وسقف الخزان', section: 'الخزان', subcat: 'خرسانة', unit: 'م³', contractQty: 850, executedQty: 595, unitPrice: 1450, status: 'قيد التنفيذ' },
+      { id: id(), code: '3.3.1', desc: 'عزل بيتوميني للخزان من الداخل والخارج', section: 'الخزان', subcat: 'عزل', unit: 'م²', contractQty: 1200, executedQty: 0, unitPrice: 285, status: 'لم يبدأ' },
+      { id: id(), code: '4.1.1', desc: 'خرسانة أساسات مباني المضخات', section: 'مباني المضخات', subcat: 'خرسانة', unit: 'م³', contractQty: 320, executedQty: 80, unitPrice: 1850, status: 'قيد التنفيذ' },
+      { id: id(), code: '4.2.1', desc: 'توريد وتركيب مضخة طرد مركزي 250 HP', section: 'كهروميكانيكال', subcat: 'مضخات', unit: 'عدد', contractQty: 2, executedQty: 0, unitPrice: 475000, status: 'لم يبدأ' },
+      { id: id(), code: '4.3.1', desc: 'توريد وتركيب لوحة تحكم رئيسية MCC', section: 'كهروميكانيكال', subcat: 'كهرباء', unit: 'عدد', contractQty: 1, executedQty: 0, unitPrice: 450000, status: 'لم يبدأ' }
+    ],
+    payments: [
+      { id: id(), num: '1', month: 'يناير', year: 2026, submitted: '2026-02-05', paid: '2026-02-28', value: 850000, deductions: 85000, cumPct: 8, status: 'مصروف' },
+      { id: id(), num: '2', month: 'فبراير', year: 2026, submitted: '2026-03-05', paid: '2026-03-30', value: 1200000, deductions: 120000, cumPct: 18, status: 'مصروف' },
+      { id: id(), num: '3', month: 'مارس', year: 2026, submitted: '2026-04-05', paid: '2026-04-29', value: 1450000, deductions: 145000, cumPct: 30, status: 'مصروف' },
+      { id: id(), num: '4', month: 'أبريل', year: 2026, submitted: '2026-05-05', paid: '', value: 1300000, deductions: 130000, cumPct: 41, status: 'معتمد' }
+    ],
+    materials: [
+      { id: id(), name: 'أنابيب HDPE 400mm PN16', cat: 'أنابيب', qty: 2000, unit: 'م', value: 850000, supplier: 'شركة الأنابيب السعودية', po: 'PO-2026-018', poStatus: 'معتمد', mfgStatus: 'قيد التصنيع', deliveryStatus: 'في الطريق', expectedDate: '2026-05-25', priority: 'حرج', issues: '' },
+      { id: id(), name: 'صمامات بوابية 12" DN300', cat: 'صمامات', qty: 8, unit: 'عدد', value: 320000, supplier: 'شركة KSB العالمية', po: 'PO-2026-019', poStatus: 'صادر', mfgStatus: 'لم يبدأ', deliveryStatus: 'لم يبدأ', expectedDate: '2026-06-15', priority: 'عالي', issues: 'تأخير في الاعتماد' },
+      { id: id(), name: 'حديد تسليح قطر 16مم', cat: 'حديد', qty: 50, unit: 'طن', value: 180000, supplier: 'حديد الراجحي', po: 'PO-2026-015', poStatus: 'معتمد', mfgStatus: 'منتهي', deliveryStatus: 'وصل الموقع', expectedDate: '2026-04-15', priority: 'متوسط', issues: '' },
+      { id: id(), name: 'مضخة طرد مركزي 250 HP', cat: 'مضخات', qty: 2, unit: 'عدد', value: 950000, supplier: '', po: '', poStatus: 'لم يصدر', mfgStatus: 'لم يبدأ', deliveryStatus: 'لم يبدأ', expectedDate: '', priority: 'حرج', issues: 'بانتظار اعتماد الكتالوج' }
+    ],
+    submittals: [
+      { id: id(), num: 'SD-V03-001', name: 'مخطط تنفيذي - غرفة صمامات V-03', type: 'مخطط تنفيذي', linkedTo: 'غرف الصمامات', rev: 'Rev. 1', submitted: '2026-04-10', responded: '2026-04-22', status: 'معتمد', delay: 0, notes: '' },
+      { id: id(), num: 'MS-PUMP-002', name: 'كتالوج مضخة الطرد المركزي', type: 'كتالوج', linkedTo: 'مباني المضخات', rev: 'Rev. 0', submitted: '2026-04-25', responded: '', status: 'تحت المراجعة', delay: 7, notes: '' },
+      { id: id(), num: 'MS-TANK-008', name: 'بروسيجر صب خرسانة جدران الخزان', type: 'بروسيجر', linkedTo: 'الخزان', rev: 'Rev. 0', submitted: '2026-04-15', responded: '2026-04-28', status: 'يحتاج تعديل', delay: 0, notes: 'إضافة خطوات المعالجة لمدة 14 يوم' },
+      { id: id(), num: 'MS-INSU-003', name: 'عينة - عزل بيتوميني', type: 'عينة مادة', linkedTo: 'الخزان', rev: 'Rev. 0', submitted: '2026-04-28', responded: '', status: 'مقدم', delay: 0, notes: '' }
+    ],
+    permits: [
+      { id: id(), name: 'رخصة بناء مباني المضخات', type: 'رخصة بناء', authority: 'أمانة تبوك', num: 'BL-2025-4521', issued: '2025-11-15', expires: '2026-11-15', cost: 25000, status: 'سارية', responsible: 'أ. عبدالله' },
+      { id: id(), name: 'رخصة حفر شوارع', type: 'رخصة حفر', authority: 'أمانة تبوك - الطرق', num: 'EX-2026-0892', issued: '2026-01-10', expires: '2026-07-10', cost: 18000, status: 'سارية', responsible: 'أ. عبدالله' },
+      { id: id(), name: 'موافقة الدفاع المدني', type: 'دفاع مدني', authority: 'الدفاع المدني', num: '', issued: '', expires: '', cost: 12000, status: 'قيد المراجعة', responsible: 'أ. فهد' },
+      { id: id(), name: 'توصيل كهرباء لمباني المضخات', type: 'كهرباء', authority: 'الشركة السعودية للكهرباء', num: '', issued: '', expires: '', cost: 35000, status: 'قيد التقديم', responsible: 'م. خالد' }
+    ],
+    budget: [
+      { id: id(), item: 'عمالة تنفيذية', cat: 'عمالة', allocated: 2500000, spent: 1100000 },
+      { id: id(), item: 'أنابيب HDPE وتجهيزات', cat: 'مواد', allocated: 4500000, spent: 2800000 },
+      { id: id(), item: 'خرسانة جاهزة', cat: 'مواد', allocated: 1800000, spent: 1620000 },
+      { id: id(), item: 'إيجار معدات', cat: 'معدات', allocated: 1200000, spent: 480000 },
+      { id: id(), item: 'مقاولي الباطن', cat: 'مقاولين باطن', allocated: 3000000, spent: 1350000 },
+      { id: id(), item: 'صمامات وملحقات', cat: 'مواد', allocated: 1500000, spent: 600000 },
+      { id: id(), item: 'مصاريف إدارية', cat: 'إدارية', allocated: 800000, spent: 320000 },
+      { id: id(), item: 'تجهيزات السلامة', cat: 'سلامة', allocated: 250000, spent: 90000 }
+    ],
+    subcontractors: [
+      { id: id(), name: 'مؤسسة الحفر الحديث', specialty: 'حفر وردم', linkedTo: 'شبكات المياه', contract: 1200000, progress: 45, paid: 480000, status: 'فعّال', phone: '', start: '', end: '' },
+      { id: id(), name: 'شركة الخرسانات المتطورة', specialty: 'خرسانة', linkedTo: 'الخزان', contract: 800000, progress: 70, paid: 560000, status: 'فعّال', phone: '', start: '', end: '' },
+      { id: id(), name: 'مؤسسة الأنابيب المتخصصة', specialty: 'أنابيب', linkedTo: 'شبكات المياه', contract: 600000, progress: 35, paid: 200000, status: 'فعّال', phone: '', start: '', end: '' },
+      { id: id(), name: 'مؤسسة التيار للكهرباء', specialty: 'كهرباء', linkedTo: 'مباني المضخات', contract: 400000, progress: 0, paid: 0, status: 'قيد التعاقد', phone: '', start: '', end: '' },
+      { id: id(), name: 'شركة الحدادة والتسليح', specialty: 'حدادة', linkedTo: 'متعدد', contract: 350000, progress: 40, paid: 110000, status: 'فعّال', phone: '', start: '', end: '' }
+    ],
+    lookahead: [
+      { id: id(), activity: 'استكمال حفر وتركيب الأنابيب - القطاع A', section: 'شبكات المياه', week: 1, start: today(2), end: today(7), status: 'جاهز', priority: 'حرج', assignee: 'م. أحمد', materials: 'أنابيب HDPE 400mm', equipment: 'حفارة + لحام', labor: 12, prereq: 'اعتماد مخطط المسار', blockers: '' },
+      { id: id(), activity: 'صب خرسانة جدار الخزان - المرحلة 2', section: 'الخزان', week: 1, start: today(3), end: today(6), status: 'بانتظار اعتماد', priority: 'عالي', assignee: 'م. سعيد', materials: 'خرسانة C40 - 120 م³', equipment: 'مضخة خرسانة', labor: 18, prereq: 'اعتماد البروسيجر المعدل', blockers: '' },
+      { id: id(), activity: 'تركيب صمامات غرفة V-04', section: 'غرف الصمامات', week: 1, start: today(4), end: today(8), status: 'بانتظار مواد', priority: 'متوسط', assignee: 'م. خالد', materials: 'صمامات 12" + فلانجات', equipment: 'رافعة', labor: 6, prereq: 'وصول الصمامات', blockers: 'تأخير وصول الصمامات' },
+      { id: id(), activity: 'اختبار ضغط - القطاع A', section: 'شبكات المياه', week: 2, start: today(9), end: today(12), status: 'مخطط', priority: 'عالي', assignee: 'م. أحمد', materials: '', equipment: 'مضخة اختبار ضغط', labor: 8, prereq: 'اكتمال تركيب الأنابيب', blockers: '' },
+      { id: id(), activity: 'بدء أعمال عزل جدران الخزان', section: 'الخزان', week: 2, start: today(10), end: today(14), status: 'مخطط', priority: 'متوسط', assignee: 'م. سعيد', materials: 'عازل بيتوميني', equipment: '', labor: 10, prereq: 'إنتهاء معالجة الصب', blockers: '' },
+      { id: id(), activity: 'صب خرسانة أساسات مبنى المضخات 1', section: 'مباني المضخات', week: 2, start: today(11), end: today(15), status: 'مخطط', priority: 'عالي', assignee: 'م. خالد', materials: '', equipment: 'فايبريتور', labor: 14, prereq: 'تركيب حدادة الأساسات', blockers: '' }
+    ]
+  };
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function id() { return 'i' + Math.random().toString(36).slice(2, 11); }
+function today(offset = 0) {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+function fmt(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+function fmtMoney(n) {
+  if (!n) return '0';
+  if (n >= 1000000) return (n/1000000).toFixed(2) + 'م';
+  if (n >= 1000) return (n/1000).toFixed(0) + 'ك';
+  return fmt(n);
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function statusBadge(s) {
+  const map = {
+    'منجز':'green','منجزة':'green','معتمد':'green','سارية':'green','مصروف':'green','وصل الموقع':'green','فعّال':'green','جاهز':'green','منتهي':'green','منتهية':'gray',
+    'قيد التنفيذ':'blue','مقدم':'blue','بدأ':'blue','صادر':'blue','في الطريق':'blue','قيد التقديم':'blue','قيد المراجعة':'blue','تحت المراجعة':'yellow','بانتظار':'yellow','بانتظار مواد':'yellow','بانتظار اعتماد':'yellow','قيد التصنيع':'blue','قيد التعاقد':'gray','معتمد مع ملاحظات':'purple',
+    'لم يبدأ':'gray','لم يصدر':'gray','جديدة':'gray','مخطط':'gray','قيد الإعداد':'gray','غير مطلوب':'gray',
+    'متوقف':'red','متأخر':'red','مرفوض':'red','مرفوضة':'red','يحتاج تعديل':'orange','محظور':'red','ملغى':'red','ملغاة':'red',
+    'عاجل':'red','حرج':'red','عالية':'orange','عالي':'orange','متوسطة':'yellow','متوسط':'yellow','منخفضة':'gray','منخفض':'gray',
+    'مقترب':'yellow','تجاوز':'red','ضمن الميزانية':'green'
+  };
+  return `<span class="badge ${map[s] || 'gray'}">${escapeHtml(s)}</span>`;
+}
+function progressBar(pct, color = '') {
+  const p = Math.max(0, Math.min(100, pct || 0));
+  return `<div class="flex items-center gap-2"><div class="progress flex-1"><div class="progress-fill ${color}" style="width:${p}%"></div></div><span class="mono text-xs" style="color:var(--text-mute);min-width:35px">${p.toFixed(0)}%</span></div>`;
+}
+function daysBetween(d1, d2) {
+  if (!d1 || !d2) return null;
+  return Math.round((new Date(d2) - new Date(d1)) / (1000*60*60*24));
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showSection(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  if (el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+let charts = {};
+const chartFont = { family: 'IBM Plex Sans Arabic', size: 11 };
+const chartColors = {
+  text: '#8b95a3', grid: '#1e2632',
+  accent: '#ffa726', accent2: '#4fc3f7',
+  green: '#66bb6a', red: '#ef5350', yellow: '#ffca28', purple: '#ab7df8'
+};
+Chart.defaults.font = chartFont;
+Chart.defaults.color = chartColors.text;
+Chart.defaults.borderColor = chartColors.grid;
+
+function destroyChart(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+function renderDashboardCharts() {
+  // Progress chart
+  destroyChart('progress');
+  const sections = DB.planning.map(p => p.section);
+  charts.progress = new Chart(document.getElementById('chartProgress'), {
+    type: 'bar',
+    data: {
+      labels: sections,
+      datasets: [
+        { label: 'مخطط %', data: DB.planning.map(p => p.planned), backgroundColor: chartColors.accent2, borderRadius: 4 },
+        { label: 'فعلي %', data: DB.planning.map(p => p.actual), backgroundColor: chartColors.accent, borderRadius: 4 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } } },
+      scales: { y: { beginAtZero: true, max: 100, grid: { color: chartColors.grid } }, x: { grid: { display: false } } } }
+  });
+
+  // BOQ status donut
+  destroyChart('boqStatus');
+  const statusCounts = {};
+  DB.boq.forEach(b => statusCounts[b.status] = (statusCounts[b.status] || 0) + 1);
+  charts.boqStatus = new Chart(document.getElementById('chartBoqStatus'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCounts),
+      datasets: [{ data: Object.values(statusCounts),
+        backgroundColor: [chartColors.green, chartColors.accent2, chartColors.yellow, chartColors.red, chartColors.purple],
+        borderColor: '#11161e', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 12 } } } }
+  });
+
+  // Cashflow
+  destroyChart('cashflow');
+  const sortedPay = [...DB.payments].sort((a,b) => (a.year*100 + monthIdx(a.month)) - (b.year*100 + monthIdx(b.month)));
+  charts.cashflow = new Chart(document.getElementById('chartCashflow'), {
+    type: 'line',
+    data: {
+      labels: sortedPay.map(p => p.month),
+      datasets: [
+        { label: 'القيمة (مليون)', data: sortedPay.map(p => (p.value || 0) / 1000000),
+          borderColor: chartColors.accent, backgroundColor: 'rgba(255,167,38,.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: chartColors.accent },
+        { label: 'النسبة التراكمية %', data: sortedPay.map(p => p.cumPct), yAxisID: 'y1',
+          borderColor: chartColors.accent2, borderDash: [4,4], pointRadius: 3, tension: 0.3 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 14 } } },
+      scales: {
+        y: { grid: { color: chartColors.grid }, title: { display: true, text: 'مليون ر.س' } },
+        y1: { position: 'left', max: 100, grid: { display: false }, title: { display: true, text: '%' } },
+        x: { grid: { display: false } } } }
+  });
+
+  // Budget donut
+  destroyChart('budget');
+  const catTotals = {};
+  DB.budget.forEach(b => catTotals[b.cat] = (catTotals[b.cat] || 0) + (b.allocated || 0));
+  charts.budget = new Chart(document.getElementById('chartBudget'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(catTotals),
+      datasets: [{ data: Object.values(catTotals),
+        backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.green, chartColors.purple, chartColors.yellow, chartColors.red, '#888'],
+        borderColor: '#11161e', borderWidth: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } } } }
+  });
+}
+
+function monthIdx(m) {
+  const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  return months.indexOf(m);
+}
+
+function renderPlanCharts() {
+  destroyChart('sCurve');
+  const sortedPay = [...DB.payments].sort((a,b) => (a.year*100 + monthIdx(a.month)) - (b.year*100 + monthIdx(b.month)));
+  const totalWeight = DB.planning.reduce((s,p) => s + (p.weight || 0), 0) || 1;
+  const actualOverall = DB.planning.reduce((s,p) => s + (p.actual || 0) * (p.weight || 0), 0) / totalWeight;
+  const plannedOverall = DB.planning.reduce((s,p) => s + (p.planned || 0) * (p.weight || 0), 0) / totalWeight;
+  charts.sCurve = new Chart(document.getElementById('chartSCurve'), {
+    type: 'line',
+    data: {
+      labels: sortedPay.map(p => p.month).concat(['الحالي', 'المتوقع']),
+      datasets: [
+        { label: 'الإنجاز التراكمي %', data: sortedPay.map(p => p.cumPct).concat([actualOverall, null]),
+          borderColor: chartColors.accent, backgroundColor: 'rgba(255,167,38,.15)', fill: true, tension: 0.35, pointRadius: 4 },
+        { label: 'الخط المخطط', data: sortedPay.map((_,i) => (i+1) * (plannedOverall / sortedPay.length)).concat([plannedOverall, plannedOverall + 10]),
+          borderColor: chartColors.accent2, borderDash: [5,5], tension: 0.2, pointRadius: 0 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, max: 100, grid: { color: chartColors.grid } }, x: { grid: { display: false } } } }
+  });
+
+  destroyChart('variance');
+  charts.variance = new Chart(document.getElementById('chartVariance'), {
+    type: 'bar',
+    data: {
+      labels: DB.planning.map(p => p.section),
+      datasets: [{ label: 'الانحراف (%)', data: DB.planning.map(p => (p.actual || 0) - (p.planned || 0)),
+        backgroundColor: DB.planning.map(p => ((p.actual || 0) - (p.planned || 0)) >= 0 ? chartColors.green : chartColors.red),
+        borderRadius: 4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y', plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: chartColors.grid } }, y: { grid: { display: false } } } }
+  });
+}
+
+function renderPayChart() {
+  destroyChart('payFlow');
+  const sortedPay = [...DB.payments].sort((a,b) => (a.year*100 + monthIdx(a.month)) - (b.year*100 + monthIdx(b.month)));
+  charts.payFlow = new Chart(document.getElementById('chartPayFlow'), {
+    type: 'bar',
+    data: {
+      labels: sortedPay.map(p => p.month + ' ' + p.year),
+      datasets: [
+        { label: 'القيمة الإجمالية', data: sortedPay.map(p => p.value || 0), backgroundColor: chartColors.accent2, borderRadius: 4 },
+        { label: 'الخصومات', data: sortedPay.map(p => p.deductions || 0), backgroundColor: chartColors.red, borderRadius: 4 },
+        { label: 'الصافي', data: sortedPay.map(p => (p.value || 0) - (p.deductions || 0)), backgroundColor: chartColors.green, borderRadius: 4 }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { grid: { color: chartColors.grid }, ticks: { callback: v => fmtMoney(v) } }, x: { grid: { display: false } } } }
+  });
+}
+
+// ============================================================
+// RENDERERS — DASHBOARD
+// ============================================================
+function renderDashboard() {
+  // KPIs
+  const totalWeight = DB.planning.reduce((s,p) => s + (p.weight || 0), 0) || 1;
+  const actualOverall = DB.planning.reduce((s,p) => s + (p.actual || 0) * (p.weight || 0), 0) / totalWeight;
+  const plannedOverall = DB.planning.reduce((s,p) => s + (p.planned || 0) * (p.weight || 0), 0) / totalWeight;
+  document.getElementById('kpiActual').textContent = actualOverall.toFixed(1) + '%';
+  document.getElementById('kpiActualBar').style.width = actualOverall + '%';
+  document.getElementById('kpiPlanned').textContent = plannedOverall.toFixed(1) + '%';
+  const variance = actualOverall - plannedOverall;
+  const v = document.getElementById('kpiVariance');
+  v.textContent = (variance >= 0 ? '↑ ' : '↓ ') + Math.abs(variance).toFixed(1) + '% انحراف';
+  v.className = 'kpi-delta ' + (variance >= 0 ? 'up' : 'down');
+
+  const totalSpent = DB.budget.reduce((s,b) => s + (b.spent || 0), 0);
+  const totalAlloc = DB.budget.reduce((s,b) => s + (b.allocated || 0), 0);
+  document.getElementById('kpiSpent').textContent = fmtMoney(totalSpent) + ' ر.س';
+  const spentPct = totalAlloc > 0 ? (totalSpent/totalAlloc * 100) : 0;
+  document.getElementById('kpiSpentPct').textContent = spentPct.toFixed(1) + '% من ' + fmtMoney(totalAlloc);
+
+  // Alerts
+  const alerts = [];
+  DB.submittals.forEach(s => { if (s.delay > 0) alerts.push({ type:'sub', text: 'تأخير في "'+s.name+'" — '+s.delay+' يوم', sev:'red' }); });
+  DB.materials.forEach(m => { if (m.issues) alerts.push({ type:'mat', text: m.name+' — '+m.issues, sev:'red' }); });
+  DB.permits.forEach(p => { if (p.expires) {
+    const d = daysBetween(today(), p.expires);
+    if (d !== null && d <= 30 && d >= 0) alerts.push({ type:'permit', text: p.name+' — تنتهي خلال '+d+' يوم', sev:'yellow' });
+    if (d !== null && d < 0) alerts.push({ type:'permit', text: p.name+' — منتهية', sev:'red' });
+  }});
+  DB.tasks.forEach(t => {
+    if (t.status !== 'منجزة' && t.due) {
+      const d = daysBetween(today(), t.due);
+      if (d !== null && d < 0) alerts.push({ type:'task', text: 'مهمة متأخرة: '+t.title, sev:'red' });
+    }
+  });
+  document.getElementById('kpiAlerts').textContent = alerts.length;
+
+  // Hot tasks (top 5 urgent + open)
+  const hot = DB.tasks
+    .filter(t => t.status !== 'منجزة' && t.status !== 'ملغاة')
+    .sort((a,b) => (priVal(a.priority) - priVal(b.priority)) || (a.due || '').localeCompare(b.due || ''))
+    .slice(0, 5);
+  document.getElementById('hotTasks').innerHTML = hot.length ? hot.map(t => `
+    <div class="flex items-center justify-between py-2 border-b" style="border-color:var(--border)">
+      <div class="flex-1">
+        <div class="text-sm font-medium">${escapeHtml(t.title)}</div>
+        <div class="text-xs mt-1" style="color:var(--text-mute)">${escapeHtml(t.assignee || '—')} • ${escapeHtml(t.linkedTo || '—')}</div>
+      </div>
+      <div class="flex flex-col items-end gap-1">
+        ${statusBadge(t.priority)}
+        <span class="mono text-xs" style="color:var(--text-mute)">${t.due || '—'}</span>
+      </div>
+    </div>
+  `).join('') : '<div class="empty-state">لا توجد مهام عاجلة</div>';
+
+  // Risks
+  document.getElementById('riskList').innerHTML = alerts.length ? alerts.slice(0, 8).map(a => `
+    <div class="py-2 border-b flex items-start gap-2" style="border-color:var(--border)">
+      <span class="risk-tag" style="${a.sev==='yellow'?'background:rgba(255,202,40,.1);color:#ffd54f;border-color:rgba(255,202,40,.2)':''}"></span>
+      <div class="text-sm">${escapeHtml(a.text)}</div>
+    </div>
+  `).join('') : '<div class="empty-state">لا توجد تنبيهات حالياً ✓</div>';
+
+  document.getElementById('dashMeta').textContent = `آخر تحديث ${new Date().toLocaleString('ar-SA')}`;
+  renderDashboardCharts();
+}
+function priVal(p) { return ({'عاجل':1,'حرج':1,'عالية':2,'عالي':2,'متوسطة':3,'متوسط':3,'منخفضة':4,'منخفض':4})[p] || 5; }
+
+// ============================================================
+// RENDERERS — TASKS
+// ============================================================
+let taskFilter = 'open';
+function filterTasks(f, el) {
+  taskFilter = f;
+  document.querySelectorAll('#tasks .tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks();
+}
+function renderTasks() {
+  let list = [...DB.tasks];
+  if (taskFilter === 'open') list = list.filter(t => t.status !== 'منجزة' && t.status !== 'ملغاة');
+  else if (taskFilter === 'urgent') list = list.filter(t => t.priority === 'عاجل' || t.priority === 'عالية');
+  else if (taskFilter === 'done') list = list.filter(t => t.status === 'منجزة');
+  list.sort((a,b) => priVal(a.priority) - priVal(b.priority) || (a.due || '').localeCompare(b.due || ''));
+
+  const tbody = document.querySelector('#tasksTable tbody');
+  tbody.innerHTML = list.length ? list.map(t => `
+    <tr>
+      <td><input type="checkbox" ${t.status==='منجزة'?'checked':''} onchange="toggleTask('${t.id}')" style="width:auto"></td>
+      <td><div class="font-medium">${escapeHtml(t.title)}</div>${t.notes?`<div class="text-xs mt-1" style="color:var(--text-mute)">${escapeHtml(t.notes)}</div>`:''}</td>
+      <td>${statusBadge(t.priority)}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(t.dept || '—')}</span></td>
+      <td>${escapeHtml(t.assignee || '—')}</td>
+      <td><span class="text-xs">${escapeHtml(t.linkedTo || '—')}</span></td>
+      <td><span class="mono text-xs">${t.due || '—'}</span></td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openTaskModal('${t.id}')" style="border:1px solid var(--border-strong)">تعديل</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('tasks','${t.id}')">حذف</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="9" class="empty-state">لا توجد مهام</td></tr>`;
+
+  document.getElementById('tasksMeta').textContent = `${list.length} مهمة من إجمالي ${DB.tasks.length}`;
+}
+function toggleTask(id) {
+  const t = DB.tasks.find(x => x.id === id);
+  if (t) { t.status = t.status === 'منجزة' ? 'قيد التنفيذ' : 'منجزة'; saveDB(); }
+}
+
+// ============================================================
+// RENDERERS — PLANNING
+// ============================================================
+function renderPlanning() {
+  const tbody = document.querySelector('#planTable tbody');
+  tbody.innerHTML = DB.planning.length ? DB.planning.map(p => {
+    const variance = (p.actual || 0) - (p.planned || 0);
+    const vClass = variance >= 0 ? 'green' : 'red';
+    return `<tr>
+      <td><div class="font-medium">${escapeHtml(p.name)}</div></td>
+      <td>${statusBadge(p.section)}</td>
+      <td><span class="mono text-xs">${p.weight || 0}%</span></td>
+      <td>${progressBar(p.planned, '')}</td>
+      <td>${progressBar(p.actual, vClass)}</td>
+      <td><span class="mono text-xs ${variance>=0?'text-green-400':'text-red-400'}" style="color:${variance>=0?'var(--green)':'var(--red)'}">${variance>=0?'+':''}${variance.toFixed(0)}%</span></td>
+      <td><span class="mono text-xs">${p.plannedStart || '—'}</span></td>
+      <td><span class="mono text-xs">${p.plannedEnd || '—'}</span></td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openPlanModal('${p.id}')" style="border:1px solid var(--border-strong)">تعديل</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('planning','${p.id}')">حذف</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="10" class="empty-state">لا توجد مراحل</td></tr>`;
+  renderPlanCharts();
+}
+
+// ============================================================
+// RENDERERS — BOQ
+// ============================================================
+function renderBoq() {
+  const search = (document.getElementById('boqSearch').value || '').trim();
+  const filterSec = document.getElementById('boqFilterSection').value;
+  const filterStat = document.getElementById('boqFilterStatus').value;
+  const view = document.getElementById('boqViewMode').value;
+
+  let list = [...DB.boq];
+  if (search) list = list.filter(b => (b.code+' '+b.desc).toLowerCase().includes(search.toLowerCase()));
+  if (filterSec) list = list.filter(b => b.section === filterSec);
+  if (filterStat) list = list.filter(b => b.status === filterStat);
+
+  // KPIs
+  const contractTotal = DB.boq.reduce((s,b) => s + (b.contractQty || 0) * (b.unitPrice || 0), 0);
+  const executedTotal = DB.boq.reduce((s,b) => s + (b.executedQty || 0) * (b.unitPrice || 0), 0);
+  document.getElementById('boqContract').textContent = fmtMoney(contractTotal);
+  document.getElementById('boqExecuted').textContent = fmtMoney(executedTotal);
+  document.getElementById('boqRemaining').textContent = fmtMoney(contractTotal - executedTotal);
+  document.getElementById('boqProgress').textContent = (contractTotal ? (executedTotal/contractTotal*100).toFixed(1) : 0) + '%';
+  document.getElementById('boqMeta').textContent = `${DB.boq.length} بند • معروض: ${list.length}`;
+
+  const container = document.getElementById('boqContainer');
+
+  if (view === 'flat') {
+    container.innerHTML = `<div class="card p-0 overflow-hidden">
+      <div class="overflow-x-auto" style="max-height:65vh">
+        <table class="data">
+          <thead><tr>
+            <th>الكود</th><th>الوصف</th><th>القسم</th><th>الفئة</th><th>الوحدة</th>
+            <th>الكمية</th><th>المنفذ</th><th>المتبقي</th><th>السعر</th><th>قيمة المنفذ</th><th>الحالة</th><th></th>
+          </tr></thead>
+          <tbody>
+          ${list.length ? list.map(b => boqRow(b)).join('') : `<tr><td colspan="12" class="empty-state">لا توجد بنود</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  } else {
+    // grouped - compact accordion by section
+    const grouped = {};
+    list.forEach(b => { (grouped[b.section] = grouped[b.section] || []).push(b); });
+    const order = ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','كهروميكانيكال','أعمال موقع','متفرقات'];
+    const sections = order.filter(s => grouped[s]).concat(Object.keys(grouped).filter(s => !order.includes(s)));
+
+    container.innerHTML = sections.map(sec => {
+      const items = grouped[sec];
+      const total = items.reduce((s,b) => s + (b.contractQty || 0) * (b.unitPrice || 0), 0);
+      const done = items.reduce((s,b) => s + (b.executedQty || 0) * (b.unitPrice || 0), 0);
+      const pct = total ? (done/total*100) : 0;
+      return `<details class="card mb-3 p-0" open>
+        <summary style="padding:14px 18px; cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border)">
+          <div class="flex items-center gap-3">
+            <span style="color:var(--accent)">▾</span>
+            <span class="font-bold">${escapeHtml(sec)}</span>
+            <span class="badge gray">${items.length} بند</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="text-xs" style="color:var(--text-mute)">قيمة: <span class="mono" style="color:var(--text)">${fmtMoney(total)}</span></div>
+            <div class="text-xs" style="color:var(--text-mute)">منجز: <span class="mono" style="color:var(--green)">${pct.toFixed(0)}%</span></div>
+            <div class="progress" style="width:80px"><div class="progress-fill green" style="width:${pct}%"></div></div>
+          </div>
+        </summary>
+        <div class="overflow-x-auto">
+          <table class="data">
+            <thead><tr>
+              <th>الكود</th><th>الوصف</th><th>الفئة</th><th>الوحدة</th>
+              <th>الكمية</th><th>المنفذ</th><th>المتبقي</th><th>السعر</th><th>قيمة المنفذ</th><th>الحالة</th><th></th>
+            </tr></thead>
+            <tbody>${items.map(b => boqRowGrouped(b)).join('')}</tbody>
+          </table>
+        </div>
+      </details>`;
+    }).join('') || `<div class="card empty-state">لا توجد بنود مطابقة للفلاتر</div>`;
+  }
+}
+function boqRow(b) {
+  const remQty = (b.contractQty || 0) - (b.executedQty || 0);
+  const execValue = (b.executedQty || 0) * (b.unitPrice || 0);
+  return `<tr>
+    <td><span class="mono text-xs">${escapeHtml(b.code || '—')}</span></td>
+    <td><div class="text-sm">${escapeHtml(b.desc)}</div></td>
+    <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(b.section || '—')}</span></td>
+    <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(b.subcat || '—')}</span></td>
+    <td>${escapeHtml(b.unit || '—')}</td>
+    <td class="num-cell">${fmt(b.contractQty)}</td>
+    <td class="num-cell" style="color:var(--green)">${fmt(b.executedQty)}</td>
+    <td class="num-cell" style="color:var(--accent-2)">${fmt(remQty)}</td>
+    <td class="num-cell">${fmt(b.unitPrice)}</td>
+    <td class="num-cell">${fmtMoney(execValue)}</td>
+    <td>${statusBadge(b.status)}</td>
+    <td class="text-left">
+      <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openBoqModal('${b.id}')" style="border:1px solid var(--border-strong)">✎</button>
+      <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('boq','${b.id}')">×</button>
+    </td>
+  </tr>`;
+}
+function boqRowGrouped(b) {
+  // same as flat but without section column
+  const remQty = (b.contractQty || 0) - (b.executedQty || 0);
+  const execValue = (b.executedQty || 0) * (b.unitPrice || 0);
+  return `<tr>
+    <td><span class="mono text-xs">${escapeHtml(b.code || '—')}</span></td>
+    <td><div class="text-sm">${escapeHtml(b.desc)}</div></td>
+    <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(b.subcat || '—')}</span></td>
+    <td>${escapeHtml(b.unit || '—')}</td>
+    <td class="num-cell">${fmt(b.contractQty)}</td>
+    <td class="num-cell" style="color:var(--green)">${fmt(b.executedQty)}</td>
+    <td class="num-cell" style="color:var(--accent-2)">${fmt(remQty)}</td>
+    <td class="num-cell">${fmt(b.unitPrice)}</td>
+    <td class="num-cell">${fmtMoney(execValue)}</td>
+    <td>${statusBadge(b.status)}</td>
+    <td class="text-left">
+      <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openBoqModal('${b.id}')" style="border:1px solid var(--border-strong)">✎</button>
+      <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('boq','${b.id}')">×</button>
+    </td>
+  </tr>`;
+}
+
+// ============================================================
+// RENDERERS — PAYMENTS
+// ============================================================
+function renderPayments() {
+  const totalSubmitted = DB.payments.reduce((s,p) => s + (p.value || 0), 0);
+  const totalPaid = DB.payments.filter(p => p.status === 'مصروف').reduce((s,p) => s + ((p.value || 0) - (p.deductions || 0)), 0);
+  const pending = DB.payments.filter(p => p.status === 'معتمد' || p.status === 'مقدم' || p.status === 'قيد المراجعة').reduce((s,p) => s + (p.value || 0), 0);
+  document.getElementById('paySubmitted').textContent = fmtMoney(totalSubmitted);
+  document.getElementById('payPaid').textContent = fmtMoney(totalPaid);
+  document.getElementById('payPending').textContent = fmtMoney(pending);
+  document.getElementById('payCount').textContent = DB.payments.length;
+  document.getElementById('payMeta').textContent = `إجمالي المستخلصات: ${DB.payments.length}`;
+
+  const sorted = [...DB.payments].sort((a,b) => (a.year*100 + monthIdx(a.month)) - (b.year*100 + monthIdx(b.month)));
+  const tbody = document.querySelector('#payTable tbody');
+  tbody.innerHTML = sorted.length ? sorted.map(p => `
+    <tr>
+      <td><span class="mono text-sm font-bold">${escapeHtml(p.num)}</span></td>
+      <td>${escapeHtml(p.month)} ${p.year}</td>
+      <td><span class="mono text-xs">${p.submitted || '—'}</span></td>
+      <td><span class="mono text-xs">${p.paid || '—'}</span></td>
+      <td class="num-cell">${fmtMoney(p.value)}</td>
+      <td class="num-cell" style="color:var(--red)">-${fmtMoney(p.deductions)}</td>
+      <td class="num-cell font-bold" style="color:var(--green)">${fmtMoney((p.value || 0) - (p.deductions || 0))}</td>
+      <td><span class="mono text-xs">${p.cumPct || 0}%</span></td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openPayModal('${p.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('payments','${p.id}')">×</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="10" class="empty-state">لا توجد مستخلصات</td></tr>`;
+  renderPayChart();
+}
+
+// ============================================================
+// RENDERERS — MATERIALS
+// ============================================================
+function renderMaterials() {
+  document.getElementById('matTotal').textContent = fmtMoney(DB.materials.reduce((s,m) => s + (m.value || 0), 0));
+  document.getElementById('matArrived').textContent = DB.materials.filter(m => m.deliveryStatus === 'وصل الموقع').length;
+  document.getElementById('matTransit').textContent = DB.materials.filter(m => m.deliveryStatus === 'في الطريق' || m.deliveryStatus === 'في الجمارك').length;
+  document.getElementById('matIssues').textContent = DB.materials.filter(m => m.issues || m.deliveryStatus === 'مرفوض').length;
+  document.getElementById('matMeta').textContent = `${DB.materials.length} مادة`;
+
+  const tbody = document.querySelector('#matTable tbody');
+  tbody.innerHTML = DB.materials.length ? DB.materials.map(m => `
+    <tr>
+      <td><div class="font-medium">${escapeHtml(m.name)}</div>${m.issues?`<div class="text-xs mt-1" style="color:var(--red)">⚠ ${escapeHtml(m.issues)}</div>`:''}</td>
+      <td>${statusBadge(m.cat)}</td>
+      <td class="num-cell">${fmt(m.qty)} ${escapeHtml(m.unit || '')}</td>
+      <td class="num-cell">${fmtMoney(m.value)}</td>
+      <td><span class="text-xs">${escapeHtml(m.supplier || '—')}</span></td>
+      <td><span class="mono text-xs">${escapeHtml(m.po || '—')}</span></td>
+      <td>${statusBadge(m.mfgStatus || 'غير مطلوب')}</td>
+      <td>${statusBadge(m.deliveryStatus || 'لم يبدأ')}</td>
+      <td><span class="mono text-xs">${m.expectedDate || '—'}</span></td>
+      <td>${statusBadge(m.priority)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openMatModal('${m.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('materials','${m.id}')">×</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="11" class="empty-state">لا توجد مواد</td></tr>`;
+}
+
+// ============================================================
+// RENDERERS — SUBMITTALS
+// ============================================================
+function renderSubmittals() {
+  document.getElementById('subSubmitted').textContent = DB.submittals.length;
+  document.getElementById('subApproved').textContent = DB.submittals.filter(s => s.status === 'معتمد' || s.status === 'معتمد مع ملاحظات').length;
+  document.getElementById('subReview').textContent = DB.submittals.filter(s => s.status === 'تحت المراجعة' || s.status === 'مقدم').length;
+  document.getElementById('subRejected').textContent = DB.submittals.filter(s => s.status === 'مرفوض' || s.status === 'يحتاج تعديل').length;
+  document.getElementById('subMeta').textContent = `${DB.submittals.length} مستند`;
+
+  const tbody = document.querySelector('#subTable tbody');
+  tbody.innerHTML = DB.submittals.length ? DB.submittals.map(s => `
+    <tr>
+      <td><span class="mono text-xs font-bold">${escapeHtml(s.num)}</span></td>
+      <td><div class="font-medium">${escapeHtml(s.name)}</div>${s.notes?`<div class="text-xs mt-1" style="color:var(--text-mute)">${escapeHtml(s.notes)}</div>`:''}</td>
+      <td><span class="text-xs">${escapeHtml(s.type || '—')}</span></td>
+      <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(s.linkedTo || '—')}</span></td>
+      <td><span class="mono text-xs">${escapeHtml(s.rev || '—')}</span></td>
+      <td><span class="mono text-xs">${s.submitted || '—'}</span></td>
+      <td><span class="mono text-xs">${s.responded || '—'}</span></td>
+      <td><span class="mono text-xs ${s.delay>0?'text-red-400':''}" style="${s.delay>0?'color:var(--red)':''}">${s.delay || 0}</span></td>
+      <td>${statusBadge(s.status)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openSubModal('${s.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('submittals','${s.id}')">×</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="10" class="empty-state">لا توجد مستندات</td></tr>`;
+}
+
+// ============================================================
+// RENDERERS — PERMITS
+// ============================================================
+function renderPermits() {
+  document.getElementById('permitMeta').textContent = `${DB.permits.length} رخصة`;
+  const tbody = document.querySelector('#permitTable tbody');
+  tbody.innerHTML = DB.permits.length ? DB.permits.map(p => {
+    const daysLeft = p.expires ? daysBetween(today(), p.expires) : null;
+    const expWarn = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+    return `<tr>
+      <td><div class="font-medium">${escapeHtml(p.name)}</div><div class="text-xs mt-1" style="color:var(--text-mute)">${escapeHtml(p.responsible || '—')}</div></td>
+      <td>${statusBadge(p.type)}</td>
+      <td><span class="text-xs">${escapeHtml(p.authority || '—')}</span></td>
+      <td><span class="mono text-xs">${escapeHtml(p.num || '—')}</span></td>
+      <td><span class="mono text-xs">${p.issued || '—'}</span></td>
+      <td><span class="mono text-xs ${expWarn?'text-yellow-400':''}" style="${expWarn?'color:var(--yellow)':''}">${p.expires || '—'}${daysLeft!==null && daysLeft >=0 && daysLeft <= 30?` (${daysLeft}ي)`:''}</span></td>
+      <td class="num-cell">${fmtMoney(p.cost)}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openPermitModal('${p.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('permits','${p.id}')">×</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9" class="empty-state">لا توجد رخص</td></tr>`;
+}
+
+// ============================================================
+// RENDERERS — BUDGET
+// ============================================================
+function renderBudget() {
+  const alloc = DB.budget.reduce((s,b) => s + (b.allocated || 0), 0);
+  const spent = DB.budget.reduce((s,b) => s + (b.spent || 0), 0);
+  document.getElementById('budgetAlloc').textContent = fmtMoney(alloc);
+  document.getElementById('budgetSpent').textContent = fmtMoney(spent);
+  document.getElementById('budgetRemain').textContent = fmtMoney(alloc - spent);
+  document.getElementById('budgetPct').textContent = (alloc ? (spent/alloc*100).toFixed(1) : 0) + '%';
+  document.getElementById('budgetMeta').textContent = `${DB.budget.length} بند`;
+
+  const tbody = document.querySelector('#budgetTable tbody');
+  tbody.innerHTML = DB.budget.length ? DB.budget.map(b => {
+    const remaining = (b.allocated || 0) - (b.spent || 0);
+    const pct = b.allocated ? ((b.spent || 0) / b.allocated * 100) : 0;
+    let bStatus = pct >= 100 ? 'تجاوز' : pct >= 80 ? 'مقترب' : 'ضمن الميزانية';
+    if (!b.spent) bStatus = 'لم يبدأ';
+    const cls = pct >= 100 ? 'red' : pct >= 80 ? 'red' : 'green';
+    return `<tr>
+      <td><div class="font-medium">${escapeHtml(b.item)}</div></td>
+      <td>${statusBadge(b.cat)}</td>
+      <td class="num-cell">${fmtMoney(b.allocated)}</td>
+      <td class="num-cell" style="color:var(--accent)">${fmtMoney(b.spent)}</td>
+      <td class="num-cell" style="color:var(--accent-2)">${fmtMoney(remaining)}</td>
+      <td>${progressBar(pct, cls)}</td>
+      <td>${statusBadge(bStatus)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openBudgetModal('${b.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('budget','${b.id}')">×</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" class="empty-state">لا توجد بنود ميزانية</td></tr>`;
+}
+
+// ============================================================
+// RENDERERS — SUBCONTRACTORS
+// ============================================================
+function renderSubcontractors() {
+  const totContract = DB.subcontractors.reduce((s,c) => s + (c.contract || 0), 0);
+  const totDone = DB.subcontractors.reduce((s,c) => s + ((c.contract || 0) * (c.progress || 0) / 100), 0);
+  const totPaid = DB.subcontractors.reduce((s,c) => s + (c.paid || 0), 0);
+  const totDue = totDone - totPaid;
+  document.getElementById('subsContracts').textContent = fmtMoney(totContract);
+  document.getElementById('subsDone').textContent = fmtMoney(totDone);
+  document.getElementById('subsPaid').textContent = fmtMoney(totPaid);
+  document.getElementById('subsDue').textContent = fmtMoney(totDue);
+  document.getElementById('subsMeta').textContent = `${DB.subcontractors.length} مقاول`;
+
+  const tbody = document.querySelector('#subconTable tbody');
+  tbody.innerHTML = DB.subcontractors.length ? DB.subcontractors.map(c => {
+    const doneVal = (c.contract || 0) * (c.progress || 0) / 100;
+    const due = doneVal - (c.paid || 0);
+    const remaining = (c.contract || 0) - (c.paid || 0);
+    return `<tr>
+      <td><div class="font-medium">${escapeHtml(c.name)}</div>${c.phone?`<div class="text-xs mt-1 mono" style="color:var(--text-mute)">${escapeHtml(c.phone)}</div>`:''}</td>
+      <td><span class="text-xs">${escapeHtml(c.specialty || '—')}</span></td>
+      <td><span class="text-xs" style="color:var(--text-dim)">${escapeHtml(c.linkedTo || '—')}</span></td>
+      <td class="num-cell">${fmtMoney(c.contract)}</td>
+      <td>${progressBar(c.progress || 0)}</td>
+      <td class="num-cell" style="color:var(--green)">${fmtMoney(doneVal)}</td>
+      <td class="num-cell">${fmtMoney(c.paid)}</td>
+      <td class="num-cell font-bold" style="color:${due>0?'var(--yellow)':'var(--text-dim)'}">${fmtMoney(due)}</td>
+      <td class="num-cell" style="color:var(--accent-2)">${fmtMoney(remaining)}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td class="text-left">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openSubconModal('${c.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded mr-1" onclick="deleteItem('subcontractors','${c.id}')">×</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="11" class="empty-state">لا يوجد مقاولون</td></tr>`;
+}
+
+// ============================================================
+// RENDERERS — LOOK-AHEAD
+// ============================================================
+function renderLookahead() {
+  const w1 = DB.lookahead.filter(l => l.week === 1).sort((a,b) => (a.start || '').localeCompare(b.start || ''));
+  const w2 = DB.lookahead.filter(l => l.week === 2).sort((a,b) => (a.start || '').localeCompare(b.start || ''));
+  document.getElementById('lookWeek1').innerHTML = w1.length ? w1.map(lookCard).join('') : '<div class="card empty-state">لا توجد أنشطة</div>';
+  document.getElementById('lookWeek2').innerHTML = w2.length ? w2.map(lookCard).join('') : '<div class="card empty-state">لا توجد أنشطة</div>';
+}
+function lookCard(l) {
+  return `<div class="card mb-3 stripe-card" style="--accent:${l.priority==='حرج'?'var(--red)':l.priority==='عالي'?'var(--accent)':'var(--accent-2)'}">
+    <div class="flex items-start justify-between mb-2">
+      <div class="flex-1">
+        <div class="font-bold text-sm mb-1">${escapeHtml(l.activity)}</div>
+        <div class="flex flex-wrap gap-2 mt-2">
+          ${statusBadge(l.section)} ${statusBadge(l.status)} ${statusBadge(l.priority)}
+        </div>
+      </div>
+      <div class="flex flex-col gap-1">
+        <button class="btn-ghost text-xs px-2 py-1 rounded" onclick="openLookModal('${l.id}')" style="border:1px solid var(--border-strong)">✎</button>
+        <button class="btn-danger text-xs px-2 py-1 rounded" onclick="deleteItem('lookahead','${l.id}')">×</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-2 text-xs mt-3">
+      <div><span style="color:var(--text-mute)">المسؤول:</span> ${escapeHtml(l.assignee || '—')}</div>
+      <div><span style="color:var(--text-mute)">العمالة:</span> ${l.labor || 0}</div>
+      <div><span style="color:var(--text-mute)">البدء:</span> <span class="mono">${l.start || '—'}</span></div>
+      <div><span style="color:var(--text-mute)">الانتهاء:</span> <span class="mono">${l.end || '—'}</span></div>
+    </div>
+    ${l.materials || l.equipment || l.prereq || l.blockers ? `<div class="mt-3 pt-3 border-t text-xs space-y-1" style="border-color:var(--border)">
+      ${l.materials?`<div><span style="color:var(--text-mute)">مواد:</span> ${escapeHtml(l.materials)}</div>`:''}
+      ${l.equipment?`<div><span style="color:var(--text-mute)">معدات:</span> ${escapeHtml(l.equipment)}</div>`:''}
+      ${l.prereq?`<div><span style="color:var(--text-mute)">متطلبات:</span> ${escapeHtml(l.prereq)}</div>`:''}
+      ${l.blockers?`<div style="color:var(--red)">⚠ ${escapeHtml(l.blockers)}</div>`:''}
+    </div>` : ''}
+  </div>`;
+}
+
+// ============================================================
+// MODAL — generic
+// ============================================================
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
+function openModalHTML(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modal').classList.add('active');
+}
+function fld(label, name, type = 'text', value = '', extra = '') {
+  return `<div><label class="fld">${label}</label><input type="${type}" name="${name}" value="${escapeHtml(value)}" ${extra}></div>`;
+}
+function selFld(label, name, options, value = '') {
+  return `<div><label class="fld">${label}</label><select name="${name}">
+    ${options.map(o => `<option ${o===value?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+  </select></div>`;
+}
+function modalForm(title, fieldsHtml, onSubmit) {
+  openModalHTML(`
+    <div class="flex items-center justify-between mb-5"><h2 class="text-lg font-bold">${title}</h2><button onclick="closeModal()" style="color:var(--text-mute);font-size:24px">×</button></div>
+    <form id="modalForm" onsubmit="${onSubmit}; return false;">
+      <div class="grid grid-cols-2 gap-4 mb-5">${fieldsHtml}</div>
+      <div class="flex gap-2 justify-end pt-4 border-t" style="border-color:var(--border)">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+        <button type="submit" class="btn btn-primary">حفظ</button>
+      </div>
+    </form>
+  `);
+}
+function readForm() {
+  const fd = new FormData(document.getElementById('modalForm'));
+  const o = {};
+  fd.forEach((v,k) => { o[k] = v; });
+  return o;
+}
+
+// ============================================================
+// MODALS — TASKS
+// ============================================================
+function openTaskModal(taskId) {
+  const t = taskId ? DB.tasks.find(x => x.id === taskId) : { title:'', priority:'متوسطة', status:'جديدة', dept:'فني', assignee:'', linkedTo:'عام', due:'', notes:'' };
+  modalForm(taskId?'تعديل مهمة':'مهمة جديدة', `
+    <div class="col-span-2">${fld('المهمة', 'title', 'text', t.title, 'required')}</div>
+    ${selFld('الأولوية', 'priority', ['عاجل','عالية','متوسطة','منخفضة'], t.priority)}
+    ${selFld('الحالة', 'status', ['جديدة','قيد التنفيذ','بانتظار','منجزة','ملغاة'], t.status)}
+    ${selFld('القسم', 'dept', ['فني','إداري','مالي','مشتريات','سلامة','جودة'], t.dept)}
+    ${fld('المسؤول', 'assignee', 'text', t.assignee)}
+    ${selFld('البند المرتبط', 'linkedTo', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','عام'], t.linkedTo)}
+    ${fld('تاريخ الاستحقاق', 'due', 'date', t.due)}
+    <div class="col-span-2"><label class="fld">ملاحظات</label><textarea name="notes" rows="3">${escapeHtml(t.notes)}</textarea></div>
+  `, `saveTask('${taskId||''}')`);
+}
+function saveTask(taskId) {
+  const data = readForm();
+  if (taskId) Object.assign(DB.tasks.find(x=>x.id===taskId), data);
+  else DB.tasks.push({ id: id(), ...data });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — PLANNING
+// ============================================================
+function openPlanModal(planId) {
+  const p = planId ? DB.planning.find(x=>x.id===planId) : { name:'', section:'شبكات المياه', weight:0, planned:0, actual:0, plannedStart:'', plannedEnd:'', status:'لم يبدأ' };
+  modalForm(planId?'تعديل مرحلة':'مرحلة جديدة', `
+    <div class="col-span-2">${fld('اسم المرحلة', 'name', 'text', p.name, 'required')}</div>
+    ${selFld('البند', 'section', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','أعمال عامة'], p.section)}
+    ${fld('الوزن (%)', 'weight', 'number', p.weight, 'min=0 max=100 step=0.1')}
+    ${fld('الإنجاز المخطط (%)', 'planned', 'number', p.planned, 'min=0 max=100 step=0.1')}
+    ${fld('الإنجاز الفعلي (%)', 'actual', 'number', p.actual, 'min=0 max=100 step=0.1')}
+    ${fld('تاريخ البدء المخطط', 'plannedStart', 'date', p.plannedStart)}
+    ${fld('تاريخ الانتهاء المخطط', 'plannedEnd', 'date', p.plannedEnd)}
+    ${selFld('الحالة', 'status', ['لم يبدأ','قيد التنفيذ','منجز','متأخر','متقدم'], p.status)}
+  `, `savePlan('${planId||''}')`);
+}
+function savePlan(planId) {
+  const d = readForm();
+  ['weight','planned','actual'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (planId) Object.assign(DB.planning.find(x=>x.id===planId), d);
+  else DB.planning.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — BOQ
+// ============================================================
+function openBoqModal(boqId) {
+  const b = boqId ? DB.boq.find(x=>x.id===boqId) : { code:'', desc:'', section:'شبكات المياه', subcat:'حفر وردم', unit:'م', contractQty:0, executedQty:0, unitPrice:0, status:'لم يبدأ' };
+  modalForm(boqId?'تعديل بند':'بند BOQ جديد', `
+    ${fld('كود البند', 'code', 'text', b.code, 'required')}
+    ${selFld('الحالة', 'status', ['لم يبدأ','قيد التنفيذ','منجز','متوقف'], b.status)}
+    <div class="col-span-2">${fld('وصف البند', 'desc', 'text', b.desc, 'required')}</div>
+    ${selFld('القسم', 'section', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','كهروميكانيكال','أعمال موقع','متفرقات'], b.section)}
+    ${selFld('الفئة الفرعية', 'subcat', ['حفر وردم','خرسانة','حدادة','أنابيب','صمامات','مضخات','كهرباء','تشطيبات','عزل','اختبارات'], b.subcat)}
+    ${selFld('الوحدة', 'unit', ['م','م²','م³','كجم','طن','عدد','م.ط','مقطوعية'], b.unit)}
+    ${fld('السعر للوحدة (ر.س)', 'unitPrice', 'number', b.unitPrice, 'min=0 step=0.01')}
+    ${fld('الكمية التعاقدية', 'contractQty', 'number', b.contractQty, 'min=0 step=0.01')}
+    ${fld('الكمية المنفذة', 'executedQty', 'number', b.executedQty, 'min=0 step=0.01')}
+  `, `saveBoq('${boqId||''}')`);
+}
+function saveBoq(boqId) {
+  const d = readForm();
+  ['contractQty','executedQty','unitPrice'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (boqId) Object.assign(DB.boq.find(x=>x.id===boqId), d);
+  else DB.boq.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — PAYMENTS
+// ============================================================
+function openPayModal(payId) {
+  const p = payId ? DB.payments.find(x=>x.id===payId) : { num:'', month:'يناير', year:new Date().getFullYear(), submitted:'', paid:'', value:0, deductions:0, cumPct:0, status:'قيد الإعداد' };
+  modalForm(payId?'تعديل مستخلص':'مستخلص جديد', `
+    ${fld('رقم المستخلص', 'num', 'text', p.num, 'required')}
+    ${selFld('الشهر', 'month', ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'], p.month)}
+    ${fld('السنة', 'year', 'number', p.year)}
+    ${selFld('الحالة', 'status', ['قيد الإعداد','مقدم','قيد المراجعة','معتمد','مصروف','مرفوض'], p.status)}
+    ${fld('تاريخ التقديم', 'submitted', 'date', p.submitted)}
+    ${fld('تاريخ الصرف', 'paid', 'date', p.paid)}
+    ${fld('القيمة (ر.س)', 'value', 'number', p.value, 'min=0 step=0.01')}
+    ${fld('الخصومات (ر.س)', 'deductions', 'number', p.deductions, 'min=0 step=0.01')}
+    ${fld('% الإنجاز التراكمي', 'cumPct', 'number', p.cumPct, 'min=0 max=100 step=0.1')}
+  `, `savePay('${payId||''}')`);
+}
+function savePay(payId) {
+  const d = readForm();
+  ['year','value','deductions','cumPct'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (payId) Object.assign(DB.payments.find(x=>x.id===payId), d);
+  else DB.payments.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — MATERIALS
+// ============================================================
+function openMatModal(matId) {
+  const m = matId ? DB.materials.find(x=>x.id===matId) : { name:'', cat:'أنابيب', qty:0, unit:'', value:0, supplier:'', po:'', poStatus:'لم يصدر', mfgStatus:'غير مطلوب', deliveryStatus:'لم يبدأ', expectedDate:'', priority:'متوسط', issues:'' };
+  modalForm(matId?'تعديل مادة':'مادة جديدة', `
+    <div class="col-span-2">${fld('اسم المادة', 'name', 'text', m.name, 'required')}</div>
+    ${selFld('الفئة', 'cat', ['أنابيب','صمامات','مضخات','خرسانة','حديد','كهرباء','عزل','إكسسوارات','أخرى'], m.cat)}
+    ${selFld('الأولوية', 'priority', ['حرج','عالي','متوسط','منخفض'], m.priority)}
+    ${fld('الكمية', 'qty', 'number', m.qty, 'min=0 step=0.01')}
+    ${fld('الوحدة', 'unit', 'text', m.unit)}
+    ${fld('القيمة (ر.س)', 'value', 'number', m.value, 'min=0 step=0.01')}
+    ${fld('المورد', 'supplier', 'text', m.supplier)}
+    ${fld('رقم PO', 'po', 'text', m.po)}
+    ${selFld('حالة PO', 'poStatus', ['لم يصدر','قيد الإعداد','صادر','معتمد','ملغى'], m.poStatus)}
+    ${selFld('حالة التصنيع', 'mfgStatus', ['غير مطلوب','لم يبدأ','قيد التصنيع','منتهي'], m.mfgStatus)}
+    ${selFld('حالة التوريد', 'deliveryStatus', ['لم يبدأ','في الطريق','في الجمارك','وصل الموقع','مرفوض'], m.deliveryStatus)}
+    ${fld('تاريخ التوريد المتوقع', 'expectedDate', 'date', m.expectedDate)}
+    <div class="col-span-2"><label class="fld">المشاكل/التأخير</label><textarea name="issues" rows="2">${escapeHtml(m.issues)}</textarea></div>
+  `, `saveMat('${matId||''}')`);
+}
+function saveMat(matId) {
+  const d = readForm();
+  ['qty','value'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (matId) Object.assign(DB.materials.find(x=>x.id===matId), d);
+  else DB.materials.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — SUBMITTALS
+// ============================================================
+function openSubModal(subId) {
+  const s = subId ? DB.submittals.find(x=>x.id===subId) : { num:'', name:'', type:'مخطط تنفيذي', linkedTo:'عام', rev:'Rev. 0', submitted:'', responded:'', status:'قيد الإعداد', delay:0, notes:'' };
+  modalForm(subId?'تعديل مستند':'مستند جديد', `
+    ${fld('رقم المستند', 'num', 'text', s.num, 'required')}
+    ${fld('رقم المراجعة', 'rev', 'text', s.rev)}
+    <div class="col-span-2">${fld('اسم المستند', 'name', 'text', s.name, 'required')}</div>
+    ${selFld('النوع', 'type', ['مخطط تنفيذي','عينة مادة','كتالوج','حساب فني','طلب معلومات RFI','بروسيجر','تقرير اختبار','أخرى'], s.type)}
+    ${selFld('البند المرتبط', 'linkedTo', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','عام'], s.linkedTo)}
+    ${fld('تاريخ التقديم', 'submitted', 'date', s.submitted)}
+    ${fld('تاريخ الرد', 'responded', 'date', s.responded)}
+    ${selFld('الحالة', 'status', ['قيد الإعداد','مقدم','تحت المراجعة','معتمد','معتمد مع ملاحظات','مرفوض','يحتاج تعديل'], s.status)}
+    ${fld('أيام التأخير', 'delay', 'number', s.delay, 'min=0')}
+    <div class="col-span-2"><label class="fld">ملاحظات الاستشاري</label><textarea name="notes" rows="2">${escapeHtml(s.notes)}</textarea></div>
+  `, `saveSub('${subId||''}')`);
+}
+function saveSub(subId) {
+  const d = readForm();
+  d.delay = Number(d.delay) || 0;
+  if (subId) Object.assign(DB.submittals.find(x=>x.id===subId), d);
+  else DB.submittals.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — PERMITS
+// ============================================================
+function openPermitModal(permitId) {
+  const p = permitId ? DB.permits.find(x=>x.id===permitId) : { name:'', type:'رخصة بناء', authority:'', num:'', issued:'', expires:'', cost:0, status:'لم يقدم', responsible:'' };
+  modalForm(permitId?'تعديل رخصة':'رخصة جديدة', `
+    <div class="col-span-2">${fld('اسم الرخصة', 'name', 'text', p.name, 'required')}</div>
+    ${selFld('النوع', 'type', ['رخصة بناء','رخصة حفر','تصريح طريق','دفاع مدني','كهرباء','بيئة','مياه','أخرى'], p.type)}
+    ${selFld('الحالة', 'status', ['لم يقدم','قيد التقديم','قيد المراجعة','سارية','منتهية','قيد التجديد','مرفوضة'], p.status)}
+    ${fld('الجهة', 'authority', 'text', p.authority)}
+    ${fld('رقم الرخصة', 'num', 'text', p.num)}
+    ${fld('تاريخ الإصدار', 'issued', 'date', p.issued)}
+    ${fld('تاريخ الانتهاء', 'expires', 'date', p.expires)}
+    ${fld('التكلفة (ر.س)', 'cost', 'number', p.cost, 'min=0')}
+    ${fld('المسؤول', 'responsible', 'text', p.responsible)}
+  `, `savePermit('${permitId||''}')`);
+}
+function savePermit(permitId) {
+  const d = readForm();
+  d.cost = Number(d.cost) || 0;
+  if (permitId) Object.assign(DB.permits.find(x=>x.id===permitId), d);
+  else DB.permits.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — BUDGET
+// ============================================================
+function openBudgetModal(budgetId) {
+  const b = budgetId ? DB.budget.find(x=>x.id===budgetId) : { item:'', cat:'مواد', allocated:0, spent:0 };
+  modalForm(budgetId?'تعديل بند ميزانية':'بند ميزانية جديد', `
+    <div class="col-span-2">${fld('البند', 'item', 'text', b.item, 'required')}</div>
+    ${selFld('الفئة', 'cat', ['عمالة','مواد','معدات','مقاولين باطن','إدارية','استشارات','سلامة','متفرقات'], b.cat)}
+    <div></div>
+    ${fld('المخصص (ر.س)', 'allocated', 'number', b.allocated, 'min=0')}
+    ${fld('المصروف (ر.س)', 'spent', 'number', b.spent, 'min=0')}
+  `, `saveBudget('${budgetId||''}')`);
+}
+function saveBudget(budgetId) {
+  const d = readForm();
+  ['allocated','spent'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (budgetId) Object.assign(DB.budget.find(x=>x.id===budgetId), d);
+  else DB.budget.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — SUBCONTRACTORS
+// ============================================================
+function openSubconModal(subId) {
+  const c = subId ? DB.subcontractors.find(x=>x.id===subId) : { name:'', specialty:'حفر وردم', linkedTo:'متعدد', contract:0, progress:0, paid:0, status:'قيد التعاقد', phone:'', start:'', end:'' };
+  modalForm(subId?'تعديل مقاول':'مقاول جديد', `
+    <div class="col-span-2">${fld('اسم المقاول', 'name', 'text', c.name, 'required')}</div>
+    ${selFld('التخصص', 'specialty', ['حفر وردم','خرسانة','حدادة','أنابيب','كهرباء','ميكانيكا','عزل','تشطيبات','أخرى'], c.specialty)}
+    ${selFld('البند المسند', 'linkedTo', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','متعدد'], c.linkedTo)}
+    ${fld('قيمة العقد (ر.س)', 'contract', 'number', c.contract, 'min=0')}
+    ${fld('% الإنجاز', 'progress', 'number', c.progress, 'min=0 max=100')}
+    ${fld('المصروف لهم (ر.س)', 'paid', 'number', c.paid, 'min=0')}
+    ${selFld('الحالة', 'status', ['قيد التعاقد','فعّال','منتهي','متوقف','ملغى'], c.status)}
+    ${fld('رقم التواصل', 'phone', 'text', c.phone)}
+    ${fld('بدء العقد', 'start', 'date', c.start)}
+    ${fld('نهاية العقد', 'end', 'date', c.end)}
+  `, `saveSubcon('${subId||''}')`);
+}
+function saveSubcon(subId) {
+  const d = readForm();
+  ['contract','progress','paid'].forEach(k => d[k] = Number(d[k]) || 0);
+  if (subId) Object.assign(DB.subcontractors.find(x=>x.id===subId), d);
+  else DB.subcontractors.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// MODALS — LOOK-AHEAD
+// ============================================================
+function openLookModal(lookId) {
+  const l = lookId ? DB.lookahead.find(x=>x.id===lookId) : { activity:'', section:'شبكات المياه', week:1, start:'', end:'', status:'مخطط', priority:'متوسط', assignee:'', materials:'', equipment:'', labor:0, prereq:'', blockers:'' };
+  modalForm(lookId?'تعديل نشاط':'نشاط Look-ahead', `
+    <div class="col-span-2">${fld('النشاط', 'activity', 'text', l.activity, 'required')}</div>
+    ${selFld('البند', 'section', ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','أعمال عامة'], l.section)}
+    ${selFld('الأسبوع', 'week', ['1','2'], String(l.week))}
+    ${fld('تاريخ البدء', 'start', 'date', l.start)}
+    ${fld('تاريخ الانتهاء', 'end', 'date', l.end)}
+    ${selFld('الحالة', 'status', ['مخطط','جاهز','بانتظار مواد','بانتظار اعتماد','محظور','بدأ'], l.status)}
+    ${selFld('الأولوية', 'priority', ['حرج','عالي','متوسط','منخفض'], l.priority)}
+    ${fld('المسؤول', 'assignee', 'text', l.assignee)}
+    ${fld('عدد العمالة', 'labor', 'number', l.labor, 'min=0')}
+    <div class="col-span-2">${fld('المواد المطلوبة', 'materials', 'text', l.materials)}</div>
+    <div class="col-span-2">${fld('المعدات المطلوبة', 'equipment', 'text', l.equipment)}</div>
+    <div class="col-span-2">${fld('المتطلبات السابقة', 'prereq', 'text', l.prereq)}</div>
+    <div class="col-span-2"><label class="fld">العوائق المتوقعة</label><textarea name="blockers" rows="2">${escapeHtml(l.blockers)}</textarea></div>
+  `, `saveLook('${lookId||''}')`);
+}
+function saveLook(lookId) {
+  const d = readForm();
+  d.week = Number(d.week);
+  d.labor = Number(d.labor) || 0;
+  if (lookId) Object.assign(DB.lookahead.find(x=>x.id===lookId), d);
+  else DB.lookahead.push({ id: id(), ...d });
+  saveDB(); closeModal();
+}
+
+// ============================================================
+// DELETE
+// ============================================================
+function deleteItem(coll, itemId) {
+  if (!confirm('هل تريد الحذف نهائياً؟')) return;
+  DB[coll] = DB[coll].filter(x => x.id !== itemId);
+  saveDB();
+}
+
+// ============================================================
+// EXCEL IMPORT — BOQ
+// ============================================================
+function importBOQ(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { alert('الملف فارغ'); return; }
+
+      const mapped = rows.map(r => mapBoqRow(r)).filter(b => b.desc || b.code);
+      if (!mapped.length) { alert('لم يتم العثور على بيانات صالحة. تأكد من أن الأعمدة تطابق النموذج.'); return; }
+
+      const choice = confirm(`تم العثور على ${mapped.length} بند.\n\nموافق = استبدال الموجود حالياً\nإلغاء = إضافة للقائمة الموجودة`);
+      if (choice) DB.boq = mapped.map(b => ({ id: id(), ...b }));
+      else DB.boq.push(...mapped.map(b => ({ id: id(), ...b })));
+      saveDB();
+      showSection('boq', document.querySelector('[onclick*="boq"]'));
+      alert(`تم استيراد ${mapped.length} بند بنجاح ✓`);
+    } catch (err) {
+      alert('خطأ في قراءة الملف: ' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+  e.target.value = '';
+}
+
+function mapBoqRow(r) {
+  // Smart column matching - looks for keys in Arabic or English
+  const get = (...names) => {
+    for (const n of names) {
+      for (const k of Object.keys(r)) {
+        if (k.trim().toLowerCase() === n.toLowerCase()) return r[k];
+      }
+    }
+    return '';
+  };
+  const sec = String(get('القسم','section','category','category 1') || '').trim();
+  const subcat = String(get('الفئة الفرعية','الفئة','subcategory','sub category','type') || '').trim();
+  const status = String(get('الحالة','status') || 'لم يبدأ').trim();
+  const validSections = ['شبكات المياه','غرف الصمامات','الخزان','مباني المضخات','كهروميكانيكال','أعمال موقع','متفرقات'];
+  return {
+    code: String(get('كود البند','الكود','code','item code','item no','no','#') || '').trim(),
+    desc: String(get('وصف البند','الوصف','description','desc','item','item description') || '').trim(),
+    section: validSections.includes(sec) ? sec : (sec || 'متفرقات'),
+    subcat: subcat || 'متفرقات',
+    unit: String(get('الوحدة','unit','uom') || '').trim(),
+    contractQty: Number(get('الكمية التعاقدية','الكمية','quantity','qty','contract qty') || 0),
+    executedQty: Number(get('الكمية المنفذة','المنفذ','executed','executed qty','done') || 0),
+    unitPrice: Number(get('السعر للوحدة','السعر','unit price','rate','price') || 0),
+    status: status || 'لم يبدأ'
+  };
+}
+
+function downloadBoqTemplate() {
+  const data = [
+    { 'كود البند':'1.1.1', 'وصف البند':'حفر خنادق...', 'القسم':'شبكات المياه', 'الفئة الفرعية':'حفر وردم', 'الوحدة':'م³', 'الكمية التعاقدية':1000, 'الكمية المنفذة':0, 'السعر للوحدة':145, 'الحالة':'لم يبدأ' },
+    { 'كود البند':'1.2.1', 'وصف البند':'توريد أنابيب HDPE 400mm', 'القسم':'شبكات المياه', 'الفئة الفرعية':'أنابيب', 'الوحدة':'م', 'الكمية التعاقدية':500, 'الكمية المنفذة':0, 'السعر للوحدة':425, 'الحالة':'لم يبدأ' }
+  ];
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
+  XLSX.writeFile(wb, 'BOQ_Template.xlsx');
+}
+
+// ============================================================
+// EXCEL IMPORT — SUBMITTALS
+// ============================================================
+function importSubmittals(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { alert('الملف فارغ'); return; }
+
+      const mapped = rows.map(r => mapSubRow(r)).filter(s => s.name || s.num);
+      if (!mapped.length) { alert('لم يتم العثور على بيانات صالحة.'); return; }
+
+      const choice = confirm(`تم العثور على ${mapped.length} مستند.\n\nموافق = استبدال\nإلغاء = إضافة`);
+      if (choice) DB.submittals = mapped.map(s => ({ id: id(), ...s }));
+      else DB.submittals.push(...mapped.map(s => ({ id: id(), ...s })));
+      saveDB();
+      showSection('submittals', document.querySelector('[onclick*="submittals"]'));
+      alert(`تم استيراد ${mapped.length} مستند بنجاح ✓`);
+    } catch (err) { alert('خطأ: ' + err.message); }
+  };
+  reader.readAsBinaryString(file);
+  e.target.value = '';
+}
+
+function mapSubRow(r) {
+  const get = (...names) => {
+    for (const n of names) for (const k of Object.keys(r)) if (k.trim().toLowerCase() === n.toLowerCase()) return r[k];
+    return '';
+  };
+  const dateStr = (v) => {
+    if (!v) return '';
+    if (typeof v === 'number') {
+      // Excel serial date
+      const d = new Date((v - 25569) * 86400 * 1000);
+      return d.toISOString().slice(0,10);
+    }
+    return String(v).slice(0,10);
+  };
+  return {
+    num: String(get('رقم المستند','الرقم','number','no','document no','submittal no') || '').trim(),
+    name: String(get('اسم المستند','الاسم','name','title','description','document') || '').trim(),
+    type: String(get('النوع','type','category') || 'أخرى').trim(),
+    linkedTo: String(get('البند المرتبط','البند','linked to','section','related') || 'عام').trim(),
+    rev: String(get('رقم المراجعة','المراجعة','revision','rev') || 'Rev. 0').trim(),
+    submitted: dateStr(get('تاريخ التقديم','submitted','submission date','submitted date')),
+    responded: dateStr(get('تاريخ الرد','responded','response date','reply date')),
+    status: String(get('الحالة','status') || 'مقدم').trim(),
+    delay: Number(get('أيام التأخير','delay','delay days') || 0),
+    notes: String(get('ملاحظات','notes','comments','consultant notes') || '').trim()
+  };
+}
+
+function downloadSubTemplate() {
+  const data = [
+    { 'رقم المستند':'SD-001', 'اسم المستند':'مخطط تنفيذي - غرفة صمامات', 'النوع':'مخطط تنفيذي', 'البند المرتبط':'غرف الصمامات', 'رقم المراجعة':'Rev. 0', 'تاريخ التقديم':'2026-04-01', 'تاريخ الرد':'', 'الحالة':'تحت المراجعة', 'أيام التأخير':5, 'ملاحظات':'' },
+    { 'رقم المستند':'MS-002', 'اسم المستند':'كتالوج مضخة', 'النوع':'كتالوج', 'البند المرتبط':'مباني المضخات', 'رقم المراجعة':'Rev. 0', 'تاريخ التقديم':'2026-04-15', 'تاريخ الرد':'2026-04-25', 'الحالة':'معتمد', 'أيام التأخير':0, 'ملاحظات':'' }
+  ];
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Submittals');
+  XLSX.writeFile(wb, 'Submittals_Template.xlsx');
+}
+
+// ============================================================
+// EXPORT / IMPORT JSON
+// ============================================================
+function exportData() {
+  const blob = new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `pm_backup_${today()}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!confirm('سيتم استبدال جميع البيانات الحالية. متابعة؟')) return;
+      DB = { ...DEFAULTS, ...data };
+      saveDB();
+      alert('تم الاستيراد بنجاح ✓');
+    } catch (err) { alert('ملف غير صالح: ' + err.message); }
+  };
+  r.readAsText(file);
+  e.target.value = '';
+}
+function resetData() {
+  if (!confirm('سيتم حذف جميع البيانات نهائياً. متأكد؟')) return;
+  if (!confirm('تأكيد ثاني — هل تريد فعلاً المسح؟')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  DB = seedDB();
+  saveDB();
+  alert('تم المسح. تم تحميل البيانات التجريبية.');
+}
+
+// ============================================================
+// MASTER REFRESH
+// ============================================================
+function refreshAll() {
+  // Update navigation counts
+  document.getElementById('navTasks').textContent = DB.tasks.filter(t => t.status !== 'منجزة' && t.status !== 'ملغاة').length;
+  document.getElementById('navPlanning').textContent = DB.planning.length;
+  document.getElementById('navBoq').textContent = DB.boq.length;
+  document.getElementById('navPayments').textContent = DB.payments.length;
+  document.getElementById('navMaterials').textContent = DB.materials.length;
+  document.getElementById('navSubmittals').textContent = DB.submittals.length;
+  document.getElementById('navPermits').textContent = DB.permits.length;
+  document.getElementById('navBudget').textContent = DB.budget.length;
+  document.getElementById('navSubs').textContent = DB.subcontractors.length;
+  document.getElementById('navLookahead').textContent = DB.lookahead.length;
+
+  renderDashboard();
+  renderTasks();
+  renderPlanning();
+  renderBoq();
+  renderPayments();
+  renderMaterials();
+  renderSubmittals();
+  renderPermits();
+  renderBudget();
+  renderSubcontractors();
+  renderLookahead();
+}
+
+// ============================================================
+// GITHUB GIST SYNC
+// ============================================================
+const SYNC_KEY = 'pm_sync_config_v1';
+const GIST_FILENAME = 'pm_water_project_data.json';
+let syncConfig = loadSyncConfig();
+let syncTimer = null;
+let lastSyncedHash = '';
+let syncing = false;
+
+function loadSyncConfig() {
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { token: '', gistId: '', autoSync: true, lastSync: null };
+}
+function saveSyncConfig() {
+  localStorage.setItem(SYNC_KEY, JSON.stringify(syncConfig));
+}
+
+function setSyncStatus(state, label) {
+  const ind = document.getElementById('syncIndicator');
+  ind.className = 'sync-indicator ' + state;
+  document.getElementById('syncLabel').textContent = label;
+}
+
+async function ghFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + syncConfig.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...(options.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`GitHub API ${res.status}: ${err.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
+async function testToken() {
+  const user = await ghFetch('https://api.github.com/user');
+  return user.login;
+}
+
+async function findOrCreateGist() {
+  // Try to find existing gist by filename
+  const gists = await ghFetch('https://api.github.com/gists?per_page=100');
+  const found = gists.find(g => g.files && g.files[GIST_FILENAME] && g.description === 'PM Water Project Data');
+  if (found) return found.id;
+  // Create new
+  const created = await ghFetch('https://api.github.com/gists', {
+    method: 'POST',
+    body: JSON.stringify({
+      description: 'PM Water Project Data',
+      public: false,
+      files: { [GIST_FILENAME]: { content: JSON.stringify(DB, null, 2) } }
+    })
+  });
+  return created.id;
+}
+
+async function pushToGist() {
+  if (!syncConfig.token || !syncConfig.gistId || syncing) return;
+  syncing = true;
+  setSyncStatus('syncing', 'جارٍ الحفظ...');
+  try {
+    const content = JSON.stringify(DB, null, 2);
+    await ghFetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ files: { [GIST_FILENAME]: { content } } })
+    });
+    lastSyncedHash = simpleHash(content);
+    syncConfig.lastSync = new Date().toISOString();
+    saveSyncConfig();
+    setSyncStatus('synced', 'محفوظ سحابياً');
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('error', 'خطأ: ' + (e.message.includes('401') ? 'توكن غير صالح' : 'فشل الحفظ'));
+  }
+  syncing = false;
+}
+
+async function pullFromGist() {
+  if (!syncConfig.token || !syncConfig.gistId) return null;
+  setSyncStatus('syncing', 'جارٍ التحميل...');
+  try {
+    const gist = await ghFetch(`https://api.github.com/gists/${syncConfig.gistId}`);
+    const file = gist.files[GIST_FILENAME];
+    if (!file) throw new Error('الملف غير موجود في Gist');
+    let content = file.content;
+    // GitHub may truncate large gists - fetch raw URL
+    if (file.truncated && file.raw_url) {
+      const raw = await fetch(file.raw_url);
+      content = await raw.text();
+    }
+    const data = JSON.parse(content);
+    setSyncStatus('synced', 'محدث');
+    return data;
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('error', 'خطأ في التحميل');
+    return null;
+  }
+}
+
+function simpleHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+  return h.toString(36);
+}
+
+function scheduleSync() {
+  if (!syncConfig.token || !syncConfig.gistId || !syncConfig.autoSync) return;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    const currentHash = simpleHash(JSON.stringify(DB));
+    if (currentHash !== lastSyncedHash) pushToGist();
+  }, 2500); // Debounce 2.5s
+}
+
+async function initSync() {
+  if (!syncConfig.token) {
+    setSyncStatus('offline', 'غير متصل');
+    return;
+  }
+  if (!syncConfig.gistId) {
+    // Need to create gist
+    setSyncStatus('syncing', 'إعداد...');
+    try {
+      syncConfig.gistId = await findOrCreateGist();
+      saveSyncConfig();
+    } catch(e) {
+      setSyncStatus('error', 'فشل الإعداد');
+      return;
+    }
+  }
+  // On startup, try to pull remote data
+  const remote = await pullFromGist();
+  if (remote && Object.keys(remote).length > 0) {
+    const remoteStr = JSON.stringify(remote);
+    const localStr = JSON.stringify(DB);
+    if (remoteStr !== localStr) {
+      // Compare timestamps or just prefer remote on first load of session
+      if (!sessionStorage.getItem('pm_pulled_this_session')) {
+        DB = { ...DEFAULTS, ...remote };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+        sessionStorage.setItem('pm_pulled_this_session', '1');
+        refreshAll();
+      }
+    }
+    lastSyncedHash = simpleHash(JSON.stringify(DB));
+  }
+}
+
+function openSyncModal() {
+  const isConnected = !!syncConfig.token;
+  const lastSyncTxt = syncConfig.lastSync
+    ? new Date(syncConfig.lastSync).toLocaleString('ar-SA')
+    : '—';
+  openModalHTML(`
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">☁ المزامنة السحابية (GitHub Gist)</h2>
+      <button onclick="closeModal()" style="color:var(--text-mute);font-size:24px">×</button>
+    </div>
+
+    ${isConnected ? `
+      <div class="card mb-4" style="background:var(--panel-2)">
+        <div class="card-title" style="--accent:var(--green)">الحالة</div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span style="color:var(--text-mute)">المستخدم:</span> <span id="ghUser" class="mono">جارٍ التحقق...</span></div>
+          <div><span style="color:var(--text-mute)">آخر مزامنة:</span> <span class="mono text-xs">${lastSyncTxt}</span></div>
+          <div><span style="color:var(--text-mute)">Gist ID:</span> <span class="mono text-xs">${(syncConfig.gistId || '—').slice(0,12)}...</span></div>
+          <div><span style="color:var(--text-mute)">الحفظ التلقائي:</span>
+            <input type="checkbox" ${syncConfig.autoSync?'checked':''} onchange="syncConfig.autoSync=this.checked; saveSyncConfig();" style="width:auto"> مفعّل
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <button class="btn btn-primary" onclick="manualPush()">⬆ رفع الآن</button>
+        <button class="btn btn-ghost" onclick="manualPull()">⬇ تحميل من السحابة</button>
+        <button class="btn btn-danger" onclick="disconnectSync()">قطع الاتصال</button>
+      </div>
+
+      <div class="card" style="background:var(--panel-2); font-size:12px; color:var(--text-dim); line-height:1.7">
+        <strong style="color:var(--text)">كيف تستخدم هذا على أجهزة أخرى:</strong>
+        <ol style="padding-inline-start:18px; margin-top:8px">
+          <li>افتح هذا الملف على الجهاز الآخر (نفس ملف HTML).</li>
+          <li>اضغط على مؤشر "غير متصل" في الأعلى.</li>
+          <li>أدخل نفس التوكن — التطبيق سيجد Gist تلقائياً ويحمّل بياناتك.</li>
+        </ol>
+      </div>
+    ` : `
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h4>إنشاء Personal Access Token</h4>
+          <p>افتح: <a href="https://github.com/settings/tokens/new?description=PM%20Water%20Project&scopes=gist" target="_blank" style="color:var(--accent); text-decoration:underline">github.com/settings/tokens/new</a></p>
+          <p style="margin-top:6px">الصلاحية المطلوبة فقط: <span class="scope-tag">gist</span></p>
+          <p style="margin-top:6px">المدة: اختر "No expiration" أو حدد سنة.</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h4>انسخ التوكن</h4>
+          <p>بعد الإنشاء سيظهر رمز يبدأ بـ <code>ghp_</code> — انسخه فوراً (لن يظهر مرة أخرى).</p>
+        </div>
+      </div>
+      <div class="setup-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h4>الصق التوكن هنا</h4>
+          <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="margin-top:6px">
+          <p style="margin-top:6px; font-size:11px">التوكن يُحفظ في متصفحك فقط — لا يُرسل لأي مكان غير GitHub مباشرة.</p>
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-4 mt-4 border-t" style="border-color:var(--border)">
+        <button class="btn btn-ghost" onclick="closeModal()">إلغاء</button>
+        <button class="btn btn-primary" onclick="connectSync()">اتصال وحفظ</button>
+      </div>
+    `}
+  `);
+
+  if (isConnected) {
+    // Fetch user info async
+    testToken().then(login => {
+      const el = document.getElementById('ghUser');
+      if (el) el.textContent = '@' + login;
+    }).catch(() => {
+      const el = document.getElementById('ghUser');
+      if (el) { el.textContent = 'توكن غير صالح'; el.style.color = 'var(--red)'; }
+    });
+  }
+}
+
+async function connectSync() {
+  const token = document.getElementById('tokenInput').value.trim();
+  if (!token) { alert('الرجاء إدخال التوكن'); return; }
+  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+    if (!confirm('التوكن لا يبدو صحيحاً (يجب أن يبدأ بـ ghp_ أو github_pat_). متابعة على أي حال؟')) return;
+  }
+  syncConfig.token = token;
+  setSyncStatus('syncing', 'جارٍ التحقق...');
+  try {
+    const login = await testToken();
+    syncConfig.gistId = await findOrCreateGist();
+    saveSyncConfig();
+    closeModal();
+    // Pull data if gist had previous content
+    const remote = await pullFromGist();
+    if (remote && Object.keys(remote).some(k => Array.isArray(remote[k]) && remote[k].length > 0)) {
+      if (confirm(`تم العثور على بيانات سابقة في حسابك (@${login}).\n\nموافق = استخدم البيانات السحابية\nإلغاء = ابق على البيانات المحلية وارفعها`)) {
+        DB = { ...DEFAULTS, ...remote };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+        refreshAll();
+      } else {
+        await pushToGist();
+      }
+    } else {
+      await pushToGist();
+    }
+    setSyncStatus('synced', `محفوظ • @${login}`);
+  } catch(e) {
+    syncConfig.token = '';
+    saveSyncConfig();
+    setSyncStatus('error', 'توكن غير صالح');
+    alert('خطأ في الاتصال: ' + e.message);
+  }
+}
+
+async function manualPush() { await pushToGist(); openSyncModal(); }
+async function manualPull() {
+  if (!confirm('سيتم استبدال البيانات الحالية بالنسخة السحابية. متابعة؟')) return;
+  const remote = await pullFromGist();
+  if (remote) {
+    DB = { ...DEFAULTS, ...remote };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+    refreshAll();
+    closeModal();
+    alert('تم التحميل بنجاح ✓');
+  }
+}
+function disconnectSync() {
+  if (!confirm('سيتم قطع الاتصال (البيانات المحلية ستبقى، والـ Gist يبقى في حسابك). متابعة؟')) return;
+  syncConfig = { token: '', gistId: '', autoSync: true, lastSync: null };
+  saveSyncConfig();
+  setSyncStatus('offline', 'غير متصل');
+  closeModal();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-CA');
+refreshAll();
+initSync();
+
+</script>
+</body>
+</html>
